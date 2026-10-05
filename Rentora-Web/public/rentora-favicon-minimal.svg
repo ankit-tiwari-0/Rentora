@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="r" x1="12" y1="8" x2="52" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00D9FF"/>
+      <stop offset="0.5" stop-color="#1677FF"/>
+      <stop offset="1" stop-color="#3155FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Minimal Rentora R monogram -->
+  <path fill="url(#r)" d="M10 9h28c9 0 16 5.8 16 14.5 0 5.8-3.2 10.4-8.5 12.8L55 55H42L33.5 39H23v16H10V9zm13 11v8h13c3.3 0 5.5-1.7 5.5-4s-2.2-4-5.5-4H23z"/>
+
+  <!-- aerodynamic cut suggesting a luxury car -->
+  <path fill="#07111F" d="M18 35.5c5.2-4.5 10.2-6.7 16.3-6.7h5.1c4.1 0 7.9 1.5 10.9 4.2l3.4 3.1H42.8l-2.6-2.1h-7.7c-4.5 0-8.4 1.8-12.1 4.4L18 35.5z"/>
+</svg>
