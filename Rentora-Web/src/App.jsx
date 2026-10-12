@@ -4,6 +4,7 @@ import Home from './pages/Home'
 import CarDetail from './pages/CarDetail'
 import Cars from './pages/Cars'
 import MyBooking from './pages/MyBooking'
+import Footer from './component/Footer'
 
 const App = () => {
   return (
@@ -16,6 +17,8 @@ const App = () => {
         <Route path='/cars' element={<Cars />} />
         <Route path='/my-bookings' element={<MyBooking/>} />
       </Routes>
+
+      <Footer />
     </div>
   )
 }
