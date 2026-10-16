@@ -87,7 +87,7 @@ const Footer = () => {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="relative w-full overflow-hidden border-t border-slate-200 bg-white">
+    <footer className="relative w-full  overflow-hidden border-t border-slate-200 bg-white">
       {/* Background decoration */}
       <div
         aria-hidden="true"
