@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { Search, Menu, X } from "lucide-react";
+import { Search, Menu, X, UserRound, LogOut, ChevronDown } from "lucide-react";
+import toast from "react-hot-toast";
+import { useAuth } from "./AuthProvider";
 import logo from "../assets/ogo.png";
 
 const navLinks = [
@@ -57,9 +59,25 @@ const mobileItem = {
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const { user, isAuthenticated, loading, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const shouldReduceMotion = useReducedMotion();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setProfileOpen(false);
+      setMenuOpen(false);
+      toast.success("You have been logged out.");
+      navigate("/", { replace: true });
+    } catch (error) {
+      toast.error("Unable to log out. Please try again.");
+    }
+  };
+
+  const closeProfile = () => setProfileOpen(false);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 64rem)");
@@ -226,26 +244,77 @@ const Navbar = () => {
             to="/owner"
           />
 
-          {/* Animated login button */}
+          {/* Authentication / account dropdown */}
           <motion.div
             variants={navItem}
-            whileHover={
-              shouldReduceMotion
-                ? undefined
-                : {
-                    y: -2,
-                    boxShadow: "0px 8px 22px rgba(37, 99, 235, 0.24)",
-                  }
-            }
-            whileTap={{ scale: 0.96 }}
-            className="ml-1"
+            whileTap={{ scale: 0.98 }}
+            className="relative ml-1"
           >
-            <Link
-              to="/login"
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition-colors duration-300 hover:bg-blue-700"
-            >
-              Login
-            </Link>
+            {loading ? (
+              <div className="h-11 w-24 animate-pulse rounded-xl bg-slate-200" />
+            ) : !isAuthenticated ? (
+              <Link
+                to="/login"
+                className="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition-colors duration-300 hover:bg-blue-700"
+              >
+                Login
+              </Link>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen((open) => !open)}
+                  aria-expanded={profileOpen}
+                  aria-label="Toggle account menu"
+                  className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  <span className="flex size-8 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                    <UserRound size={17} />
+                  </span>
+                  <span className="max-w-28 truncate">{user?.name || "My Account"}</span>
+                  <ChevronDown
+                    size={15}
+                    className={`transition-transform ${profileOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                <AnimatePresence>
+                  {profileOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                      transition={{ duration: 0.16 }}
+                      className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+                    >
+                      <div className="border-b border-slate-100 px-3 py-3">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {user?.name || "My Account"}
+                        </p>
+                        <p className="mt-1 truncate text-xs text-slate-500">
+                          {user?.email}
+                        </p>
+                      </div>
+                      <Link
+                        to="/my-bookings"
+                        onClick={closeProfile}
+                        className="mt-1 block rounded-lg px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+                      >
+                        My Bookings
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+                      >
+                        <LogOut size={16} />
+                        Logout
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )}
           </motion.div>
         </motion.div>
 
@@ -312,14 +381,47 @@ const Navbar = () => {
                 <SearchForm mobile />
               </motion.div>
 
-              <motion.div variants={mobileItem}>
-                <Link
-                  to="/login"
-                  onClick={closeMenu}
-                  className="flex h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors duration-300 hover:bg-blue-700 active:scale-[0.98]"
-                >
-                  Login
-                </Link>
+              <motion.div variants={mobileItem} className="pt-1">
+                {loading ? (
+                  <div className="h-11 w-full animate-pulse rounded-xl bg-slate-200" />
+                ) : !isAuthenticated ? (
+                  <Link
+                    to="/login"
+                    onClick={closeMenu}
+                    className="flex h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors duration-300 hover:bg-blue-700 active:scale-[0.98]"
+                  >
+                    Login
+                  </Link>
+                ) : (
+                  <div className="rounded-xl border border-slate-200 bg-white p-3">
+                    <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                        <UserRound size={19} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {user?.name || "My Account"}
+                        </p>
+                        <p className="truncate text-xs text-slate-500">{user?.email}</p>
+                      </div>
+                    </div>
+                    <Link
+                      to="/my-bookings"
+                      onClick={closeMenu}
+                      className="mt-2 block rounded-lg px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+                    >
+                      My Bookings
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+                    >
+                      <LogOut size={16} />
+                      Logout
+                    </button>
+                  </div>
+                )}
               </motion.div>
             </motion.div>
           </motion.div>
