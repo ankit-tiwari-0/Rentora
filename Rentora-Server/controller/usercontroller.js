@@ -27,3 +27,58 @@ export const registerUser = async (req, res)=>{
 }
 
 //Login fnction
+
+
+export const loginUser = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        // 1. Validate fields
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Please fill all fields"
+            });
+        }
+
+        // 2. Find user by email
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid email or password"
+            });
+        }
+
+        // 3. Compare password with hashed password
+        const isPasswordMatch = await bcrypt.compare(
+            password,
+            user.password
+        );
+
+        if (!isPasswordMatch) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid email or password"
+            });
+        }
+
+        // 4. Generate JWT token
+        const token = generateToken(user._id.toString());
+
+        // 5. Send response
+        return res.status(200).json({
+            success: true,
+            message: "Login successful",
+            token
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+};
+
