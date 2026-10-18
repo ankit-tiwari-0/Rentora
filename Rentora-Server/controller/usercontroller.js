@@ -1,4 +1,4 @@
-import User from "../model/user";
+import User from "../model/user.js";
 import bcrypt from 'bcrypt'
 import generateToken from "../config/JWT.js";
 
@@ -31,7 +31,13 @@ export const registerUser = async (req, res)=>{
 
 export const loginUser = async (req, res) => {
     try {
+        console.log("Login body:", req.body);
+
+
         const { email, password } = req.body;
+                console.log("Email:", email);
+
+        
 
         // 1. Validate fields
         if (!email || !password) {
