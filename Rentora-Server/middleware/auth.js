@@ -1,24 +1,34 @@
 
 import JWT from "jsonwebtoken";
 
-const authUser = async (req, res, next) => {
+const authUser = (req, res, next) => {
     try {
-        const authHeader = req.headers.authorization;
+        const token = req.cookies?.token;
 
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        if (!token) {
             return res.status(401).json({
                 success: false,
-                message: "Not authorized. Token missing."
+                message: "Authentication required"
             });
         }
 
-        const token = authHeader.split(" ")[1];
+        const decoded = JWT.verify(
+            token,
+            process.env.JWT_SECRET,
+            {
+                issuer: "rentora",
+                audience: "rentora-users"
+            }
+        );
 
-        const decoded = JWT.verify(token, process.env.JWT_SECRET);
+        if (!decoded.id) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid authentication token"
+            });
+        }
 
-        // Your current generateToken() signs the user ID as a string
-        req.userId = decoded;
-
+        req.userId = decoded.id;
         next();
     } catch (error) {
         return res.status(401).json({

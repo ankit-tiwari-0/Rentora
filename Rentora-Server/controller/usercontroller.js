@@ -29,15 +29,10 @@ export const registerUser = async (req, res)=>{
 //Login fnction
 
 
+
 export const loginUser = async (req, res) => {
     try {
-        console.log("Login body:", req.body);
-
-
         const { email, password } = req.body;
-                console.log("Email:", email);
-
-        
 
         // 1. Validate fields
         if (!email || !password) {
@@ -57,7 +52,7 @@ export const loginUser = async (req, res) => {
             });
         }
 
-        // 3. Compare password with hashed password
+        // 3. Compare password
         const isPasswordMatch = await bcrypt.compare(
             password,
             user.password
@@ -70,17 +65,32 @@ export const loginUser = async (req, res) => {
             });
         }
 
-        // 4. Generate JWT token
+        // 4. Generate JWT
         const token = generateToken(user._id.toString());
 
-        // 5. Send response
+        // 5. Store JWT in an HTTP-only cookie
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            path: "/"
+        });
+
+        // 6. Send response without exposing the token
         return res.status(200).json({
             success: true,
             message: "Login successful",
-            token
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email
+            }
         });
 
     } catch (error) {
+        console.error("Login error:", error.message);
+
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -88,3 +98,28 @@ export const loginUser = async (req, res) => {
     }
 };
 
+
+
+
+export const getUserData = async (req, res) => {
+    try {
+        const user = await User.findById(req.userId).select("-password");
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            user
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch user data"
+        });
+    }
+};
