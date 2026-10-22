@@ -162,3 +162,30 @@ export const createBooking = async (req, res) => {
     }
 };
 
+//API to List User bOOKING
+
+
+ // API to List User Bookings
+export const getUserBookings = async (req, res) => {
+    try {
+        const userId = req.userId;
+
+        const bookings = await Booking.find({
+            user: userId,
+        })
+            .populate("car")
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            bookings,
+        });
+    } catch (error) {
+        console.error(error.message);
+
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
