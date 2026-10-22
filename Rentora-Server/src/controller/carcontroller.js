@@ -82,3 +82,53 @@ export const getOwnerCars = async (req, res) => {
   }
 };
 
+
+
+
+// API to toggle car availability
+export const toggleCarAvailability = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { carId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(carId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid car ID",
+      });
+    }
+
+    const car = await Car.findById(carId);
+
+    if (!car) {
+      return res.status(404).json({
+        success: false,
+        message: "Car not found",
+      });
+    }
+
+    // Ensure the car belongs to the logged-in owner
+    if (car.owner.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to modify this car",
+      });
+    }
+
+    car.isAvailable = !car.isAvailable;
+    await car.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Car availability updated successfully",
+      isAvailable: car.isAvailable,
+    });
+  } catch (error) {
+    console.error("Toggle car availability error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update car availability",
+    });
+  }
+};
