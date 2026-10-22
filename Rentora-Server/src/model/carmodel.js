@@ -8,59 +8,63 @@ const carSchema = new mongoose.Schema(
         owner: {
             type: ObjectId,
             ref: "User",
-            required: true
+            required: true,
         },
         brand: {
             type: String,
-            required: true
+            required: true,
         },
         model: {
             type: String,
-            required: true
+            required: true,
         },
         image: {
             type: String,
-            required: true
+            required: true,
         },
         year: {
             type: Number,
-            required: true
+            required: true,
         },
         category: {
             type: String,
-            required: true
+            required: true,
         },
         seating_capacity: {
             type: Number,
-            required: true
+            required: true,
         },
         fuel_type: {
             type: String,
-            required: true
+            required: true,
         },
         transmission: {
             type: String,
-            required: true
+            required: true,
         },
         pricePerDay: {
             type: Number,
-            required: true
+            required: true,
         },
         location: {
             type: String,
-            required: true
+            required: true,
         },
         description: {
             type: String,
-            required: true
+            required: true,
         },
         isAvailable: {
             type: Boolean,
-            default: true
-        }
+            default: true,
+        },
+        isListed: {
+            type: Boolean,
+            default: true,
+        },
     },
     {
-        timestamps: true
+        timestamps: true,
     }
 );
 
