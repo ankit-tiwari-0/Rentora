@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import User from "../model/user.js";
 import fs from "fs";
 import Car from "../model/carmodel.js";
 import imagekit from "../config/imageKit.js";
@@ -84,8 +83,6 @@ export const getOwnerCars = async (req, res) => {
 };
 
 
-
-
 // API to toggle car availability
 export const toggleCarAvailability = async (req, res) => {
   try {
@@ -136,7 +133,7 @@ export const toggleCarAvailability = async (req, res) => {
 
 //delete
 
-export const removeCar = async (req, res) => {
+export const DeleteCar = async (req, res) => {
     try {
         const userId = req.userId;
         const { carId } = req.body;
@@ -184,8 +181,6 @@ export const removeCar = async (req, res) => {
         });
     }
 };
-
-
 
 
 // API to get owner dashboard data
