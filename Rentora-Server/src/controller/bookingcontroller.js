@@ -1,91 +1,124 @@
 
+import mongoose from "mongoose";
 import Booking from "../model/Booking.js";
 import Car from "../model/carmodel.js";
+import User from "../model/user.js";
 
-// Function to check availability of a car for given dates
-const checkAvailability = async (car, pickupDate, returnDate) => {
-    const bookings = await Booking.find({
-        car,
+// Helper: Validate dates
+const validateDates = (pickupDate, returnDate) => {
+    const pickup = new Date(pickupDate);
+    const returned = new Date(returnDate);
+
+    if (
+        !pickupDate ||
+        !returnDate ||
+        Number.isNaN(pickup.getTime()) ||
+        Number.isNaN(returned.getTime()) ||
+        returned <= pickup
+    ) {
+        return null;
+    }
+
+    return { pickup, returned };
+};
+
+// Helper: Find an overlapping booking
+const findConflictingBooking = async (
+    carId,
+    pickupDate,
+    returnDate,
+    excludeBookingId = null
+) => {
+    const query = {
+        car: carId,
         status: { $in: ["pending", "confirmed"] },
         pickupDate: { $lt: returnDate },
         returnDate: { $gt: pickupDate },
-    });
+    };
 
-    return bookings.length === 0;
+    // Exclude the current booking when confirming it
+    if (excludeBookingId) {
+        query._id = { $ne: excludeBookingId };
+    }
+
+    return Booking.findOne(query);
 };
 
-
-
-// API to check availability of cars for a given date and location
+// 1. Check available cars for a location and date range
 export const checkAvailabilityOfCar = async (req, res) => {
     try {
         const { location, pickupDate, returnDate } = req.body;
 
-        if (!location || !pickupDate || !returnDate) {
+        if (
+            typeof location !== "string" ||
+            !location.trim() ||
+            !pickupDate ||
+            !returnDate
+        ) {
             return res.status(400).json({
                 success: false,
                 message: "Location, pickup date and return date are required",
             });
         }
 
-        if (new Date(returnDate) <= new Date(pickupDate)) {
+        const dates = validateDates(pickupDate, returnDate);
+
+        if (!dates) {
             return res.status(400).json({
                 success: false,
-                message: "Return date must be after pickup date",
+                message: "Invalid dates. Return date must be after pickup date",
             });
         }
 
-        // Fetch cars for the given location
         const cars = await Car.find({
-            location,
+            location: location.trim(),
             isAvailable: true,
             isListed: true,
-        });
+        }).lean();
 
-        // Check availability for the requested date range
-        const availableCarsPromises = cars.map(async (car) => {
-            const isAvailable = await checkAvailability(
+        // Check bookings for all matching cars
+        const availableCars = [];
+
+        for (const car of cars) {
+            const conflict = await findConflictingBooking(
                 car._id,
-                pickupDate,
-                returnDate
+                dates.pickup,
+                dates.returned
             );
 
-            return {
-                ...car.toObject(),
-                isAvailable,
-            };
-        });
-
-        let availableCars = await Promise.all(availableCarsPromises);
-
-        // Return only cars available for the requested dates
-        availableCars = availableCars.filter(
-            (car) => car.isAvailable === true
-        );
+            if (!conflict) {
+                availableCars.push(car);
+            }
+        }
 
         return res.status(200).json({
             success: true,
+            count: availableCars.length,
             availableCars,
         });
     } catch (error) {
-        console.error("Check availability error:", error.message);
+        console.error("Check availability error:", error);
 
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: "Failed to check car availability",
         });
     }
 };
 
-
-
-// API to Create Booking
+// 2. Create a booking
 export const createBooking = async (req, res) => {
     try {
         const userId = req.userId;
         const { car, pickupDate, returnDate } = req.body;
 
-        // Check required fields
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Please log in first",
+            });
+        }
+
         if (!car || !pickupDate || !returnDate) {
             return res.status(400).json({
                 success: false,
@@ -93,57 +126,72 @@ export const createBooking = async (req, res) => {
             });
         }
 
-        const picked = new Date(pickupDate);
-        const returned = new Date(returnDate);
-
-        if (
-            Number.isNaN(picked.getTime()) ||
-            Number.isNaN(returned.getTime()) ||
-            returned <= picked
-        ) {
+        if (!mongoose.Types.ObjectId.isValid(car)) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid pickup or return date",
+                message: "Invalid car ID",
             });
         }
 
-        // Check car availability for the selected dates
-        const isAvailable = await checkAvailability(
-            car,
-            picked,
-            returned
-        );
+        const dates = validateDates(pickupDate, returnDate);
 
-        if (!isAvailable) {
-            return res.status(409).json({
+        if (!dates) {
+            return res.status(400).json({
                 success: false,
-                message: "Car is not available for these dates",
+                message: "Invalid dates. Return date must be after pickup date",
             });
         }
 
-        const carData = await Car.findById(car);
+        const carData = await Car.findOne({
+            _id: car,
+            isAvailable: true,
+            isListed: true,
+        });
 
-        if (!carData || !carData.isAvailable || carData.isListed === false) {
+        if (!carData) {
             return res.status(404).json({
                 success: false,
                 message: "Car is unavailable or not found",
             });
         }
 
-        // Calculate rental price
+        // An owner cannot book their own car
+        if (carData.owner.toString() === userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: "You cannot book your own car",
+            });
+        }
+
+        const conflict = await findConflictingBooking(
+            carData._id,
+            dates.pickup,
+            dates.returned
+        );
+
+        if (conflict) {
+            return res.status(409).json({
+                success: false,
+                message: "Car is already booked for these dates",
+            });
+        }
+
+        // Calculate price based on rental days
+        const millisecondsPerDay = 1000 * 60 * 60 * 24;
+
         const noOfDays = Math.ceil(
-            (returned - picked) / (1000 * 60 * 60 * 24)
+            (dates.returned.getTime() - dates.pickup.getTime()) /
+            millisecondsPerDay
         );
 
         const price = carData.pricePerDay * noOfDays;
 
-        // Create booking
         const booking = await Booking.create({
-            car,
+            car: carData._id,
             owner: carData.owner,
             user: userId,
-            pickupDate: picked,
-            returnDate: returned,
+            pickupDate: dates.pickup,
+            returnDate: dates.returned,
             price,
         });
 
@@ -153,73 +201,165 @@ export const createBooking = async (req, res) => {
             booking,
         });
     } catch (error) {
-        console.error("Create booking error:", error.message);
+        console.error("Create booking error:", error);
 
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: "Failed to create booking",
         });
     }
 };
 
-
- // API to List User Bookings
+// 3. Get bookings for the logged-in user
 export const getUserBookings = async (req, res) => {
     try {
         const userId = req.userId;
 
-        const bookings = await Booking.find({
-            user: userId,
-        })
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Please log in first",
+            });
+        }
+
+        const bookings = await Booking.find({ user: userId })
             .populate("car")
             .sort({ createdAt: -1 });
 
         return res.status(200).json({
             success: true,
+            count: bookings.length,
             bookings,
         });
     } catch (error) {
-        console.error(error.message);
+        console.error("Get user bookings error:", error);
 
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: "Failed to fetch your bookings",
         });
     }
 };
 
+// 4. Get bookings belonging to the logged-in owner
 export const getOwnerBookings = async (req, res) => {
     try {
         const userId = req.userId;
 
-        // Get authenticated user from database
+        // requireOwner middleware should protect this route
         const user = await User.findById(userId).select("role");
 
         if (!user || user.role !== "owner") {
             return res.status(403).json({
                 success: false,
-                message: "Unauthorized",
+                message: "Only owners can access these bookings",
             });
         }
 
-        // Get bookings belonging to this owner
-        const bookings = await Booking.find({
-            owner: userId,
-        })
+        const bookings = await Booking.find({ owner: userId })
             .populate("car")
-            .populate("user", "-password")
+            .populate("user", "-password -passwordHash")
             .sort({ createdAt: -1 });
 
         return res.status(200).json({
             success: true,
+            count: bookings.length,
             bookings,
         });
     } catch (error) {
-        console.error("Get owner bookings error:", error.message);
+        console.error("Get owner bookings error:", error);
 
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: "Failed to fetch owner bookings",
+        });
+    }
+};
+
+// 5. Change booking status
+export const changeBookingStatus = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { bookingId, status } = req.body;
+
+        if (!bookingId || !mongoose.Types.ObjectId.isValid(bookingId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid booking ID",
+            });
+        }
+
+        if (!["confirmed", "cancelled"].includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: "Status must be confirmed or cancelled",
+            });
+        }
+
+        const owner = await User.findById(userId).select("role");
+
+        if (!owner || owner.role !== "owner") {
+            return res.status(403).json({
+                success: false,
+                message: "Only owners can update booking status",
+            });
+        }
+
+        const booking = await Booking.findById(bookingId);
+
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                message: "Booking not found",
+            });
+        }
+
+        // An owner can update only their own bookings
+        if (booking.owner.toString() !== userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: "You cannot update another owner's booking",
+            });
+        }
+
+        if (booking.status !== "pending") {
+            return res.status(400).json({
+                success: false,
+                message: "Only pending bookings can be updated",
+            });
+        }
+
+        // Recheck availability before confirming
+        if (status === "confirmed") {
+            const conflict = await findConflictingBooking(
+                booking.car,
+                booking.pickupDate,
+                booking.returnDate,
+                booking._id
+            );
+
+            if (conflict) {
+                return res.status(409).json({
+                    success: false,
+                    message: "These dates conflict with another booking",
+                });
+            }
+        }
+
+        booking.status = status;
+        await booking.save();
+
+        return res.status(200).json({
+            success: true,
+            message: `Booking ${status} successfully`,
+            booking,
+        });
+    } catch (error) {
+        console.error("Change booking status error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to update booking status",
         });
     }
 };
