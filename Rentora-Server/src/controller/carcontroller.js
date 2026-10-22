@@ -67,7 +67,7 @@ export const getOwnerCars = async (req, res) => {
   try {
     const owner = req.userId;
 
-    const cars = await Car.find({ owner: req.userId });
+    const cars = await Car.find({ owner });
 
     return res.status(200).json({
       success: true,
@@ -181,6 +181,50 @@ export const removeCar = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Failed to remove car from listings",
+        });
+    }
+};
+
+
+
+
+// API to get owner dashboard data
+export const getDashboardData = async (req, res) => {
+    try {
+        const owner = req.userId;
+
+        // Get all cars belonging to this owner
+        const cars = await Car.find({ owner });
+
+        // Calculate dashboard statistics
+        const totalCars = cars.length;
+
+        const listedCars = cars.filter(
+            (car) => car.isListed !== false
+        ).length;
+
+        const availableCars = cars.filter(
+            (car) => car.isAvailable && car.isListed !== false
+        ).length;
+
+        const unavailableCars = totalCars - availableCars;
+
+        return res.status(200).json({
+            success: true,
+            dashboardData: {
+                totalCars,
+                listedCars,
+                availableCars,
+                unavailableCars,
+                cars,
+            },
+        });
+    } catch (error) {
+        console.error("Get dashboard data error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch dashboard data",
         });
     }
 };
