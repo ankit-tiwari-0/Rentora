@@ -76,3 +76,89 @@ export const checkAvailabilityOfCar = async (req, res) => {
         });
     }
 };
+
+
+
+// API to Create Booking
+export const createBooking = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { car, pickupDate, returnDate } = req.body;
+
+        // Check required fields
+        if (!car || !pickupDate || !returnDate) {
+            return res.status(400).json({
+                success: false,
+                message: "Car, pickup date and return date are required",
+            });
+        }
+
+        const picked = new Date(pickupDate);
+        const returned = new Date(returnDate);
+
+        if (
+            Number.isNaN(picked.getTime()) ||
+            Number.isNaN(returned.getTime()) ||
+            returned <= picked
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid pickup or return date",
+            });
+        }
+
+        // Check car availability for the selected dates
+        const isAvailable = await checkAvailability(
+            car,
+            picked,
+            returned
+        );
+
+        if (!isAvailable) {
+            return res.status(409).json({
+                success: false,
+                message: "Car is not available for these dates",
+            });
+        }
+
+        const carData = await Car.findById(car);
+
+        if (!carData || !carData.isAvailable || carData.isListed === false) {
+            return res.status(404).json({
+                success: false,
+                message: "Car is unavailable or not found",
+            });
+        }
+
+        // Calculate rental price
+        const noOfDays = Math.ceil(
+            (returned - picked) / (1000 * 60 * 60 * 24)
+        );
+
+        const price = carData.pricePerDay * noOfDays;
+
+        // Create booking
+        const booking = await Booking.create({
+            car,
+            owner: carData.owner,
+            user: userId,
+            pickupDate: picked,
+            returnDate: returned,
+            price,
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: "Booking created successfully",
+            booking,
+        });
+    } catch (error) {
+        console.error("Create booking error:", error.message);
+
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
