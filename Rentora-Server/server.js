@@ -5,6 +5,7 @@ import connectDB from "./src/config/db.js";
 import cookieParser from "cookie-parser";
 import ownerRouter from "./src/router/ownerRouter.js";
 import userRouter from "./src/router/userRouter.js";
+import carRoute from "./src/router/carRouter.js";
 
 
 const app = express()
@@ -23,6 +24,7 @@ app.use(cookieParser());
 
 app.use('/api/user', userRouter)
 app.use('/api/owner', ownerRouter)
+app.use('/api/car', carRoute)
 
 app.get('/' ,(req,res)=> res.send("Server is running"))
 

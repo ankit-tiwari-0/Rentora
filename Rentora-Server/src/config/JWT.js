@@ -10,7 +10,7 @@ const generateToken = (userId) => {
         { id: userId },
         process.env.JWT_SECRET,
         {
-            expiresIn: "7d",
+            expiresIn: "1d",
             issuer: "rentora",
             audience: "rentora-users"
         }

@@ -1,13 +1,13 @@
 import { json } from "express"
-import User from "../model/user";
+import User from "../model/user.js";
 import fs from 'fs';
-import Car from "../model/carmodel";
-
+import Car from "../model/carmodel.js";
+import imagekit from "../config/imageKit.js";
 //API to List Car
 
-export const addCar = async (req, rea) => {
+export const addCar = async (req, res) => {
     try {
-        const { _id } = req.User;
+        const { _id } = req.userId;
         let car = JSON.parse(req.body.carData);
         const imagefile = req.file;
 
@@ -24,7 +24,7 @@ export const addCar = async (req, rea) => {
         var optimizedImageUrl = imagekit.url({
             path: response.filePath,
             transformation: [
-                {with: '1280'},
+                {width: '1280'},
                 {quality: 'auto'},
                 {format: 'webp'}
                 ]
