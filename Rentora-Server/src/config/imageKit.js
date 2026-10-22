@@ -1,9 +1,9 @@
-import { ImageKit } from "@imagekit/nodejs/client.js";
 
-var imagekit = new ImageKit({
-    publicKey : process.env.IMAGEKIT_PUB,
-    privateKey : process.env.IMAGEKIT_PIV           ,
-    urlEndPoint : process.env.ENDPOINT           ,
+import { ImageKit } from "@imagekit/nodejs";
+
+const imagekit = new ImageKit({
+    publicKey: process.env.IMAGEKIT_PUB,
+    privateKey: process.env.IMAGEKIT_PIV,
 });
 
-export default imagekit
+export default imagekit;

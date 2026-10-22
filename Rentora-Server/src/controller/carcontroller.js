@@ -1,41 +1,60 @@
-import { json } from "express"
-import User from "../model/user.js";
-import fs from 'fs';
+
+import fs from "fs";
 import Car from "../model/carmodel.js";
 import imagekit from "../config/imageKit.js";
-//API to List Car
 
+// API to add a car
 export const addCar = async (req, res) => {
     try {
-        const { _id } = req.userId;
-        let car = JSON.parse(req.body.carData);
-        const imagefile = req.file;
+        const userId = req.userId;
 
-        // Upload Image to ImageKit
-        const fileBuffer = fs.readFileSync(imagefile.path);
+        const car = JSON.parse(req.body.carData);
+        const imageFile = req.file;
 
-        const response = await imagekit.upload({
-            file: fileBuffer,
-            fileName: imagefile.originalname,
-            folder: '/cars'
+        if (!imageFile) {
+            return res.status(400).json({
+                success: false,
+                message: "Car image is required",
+            });
+        }
+
+        // Upload image to ImageKit
+        const fileBuffer = fs.readFileSync(imageFile.path);
+
+        const response = await imagekit.files.upload({
+            file: fileBuffer.toString("base64"),
+            fileName: imageFile.originalname,
+            folder: "/cars",
         });
 
-        // Optimization through ImageKit URL transformation
-        var optimizedImageUrl = imagekit.url({
-            path: response.filePath,
+        // Generate optimized ImageKit URL
+        const optimizedImageUrl = imagekit.helper.buildSrc({
+            urlEndpoint: process.env.ENDPOINT,
+            src: response.filePath,
             transformation: [
-                {width: '1280'},
-                {quality: 'auto'},
-                {format: 'webp'}
-                ]
+                { width: "1280" },
+                { quality: "auto" },
+                { format: "webp" },
+            ],
         });
-          
-        const image = optimizedImageUrl;
-        await Car.create({...car, owner: _id, image})
 
-        res.json({success: true, message: "Car Added"})
+        // Save car in MongoDB
+        await Car.create({
+            ...car,
+            owner: userId,
+            image: optimizedImageUrl,
+        });
 
+        return res.status(201).json({
+            success: true,
+            message: "Car added successfully",
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message })
+        console.error("Add car error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
     }
-}
+};
