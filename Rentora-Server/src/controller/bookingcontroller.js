@@ -162,8 +162,6 @@ export const createBooking = async (req, res) => {
     }
 };
 
-//API to List User bOOKING
-
 
  // API to List User Bookings
 export const getUserBookings = async (req, res) => {
@@ -174,6 +172,38 @@ export const getUserBookings = async (req, res) => {
             user: userId,
         })
             .populate("car")
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            bookings,
+        });
+    } catch (error) {
+        console.error(error.message);
+
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+
+ // API to get Owner Bookings
+export const getOwnerBookings = async (req, res) => {
+    try {
+        if (req.user.role !== "owner") {
+            return res.status(403).json({
+                success: false,
+                message: "Unauthorized",
+            });
+        }
+
+        const bookings = await Booking.find({
+            owner: req.user._id,
+        })
+            .populate("car user")
+            .select("-user.password")
             .sort({ createdAt: -1 });
 
         return res.status(200).json({
