@@ -58,3 +58,27 @@ export const addCar = async (req, res) => {
         });
     }
 };
+
+
+
+// API to list cars belonging to the logged-in owner
+export const getOwnerCars = async (req, res) => {
+  try {
+    const owner = req.userId;
+
+    const cars = await Car.find({ owner });
+
+    return res.status(200).json({
+      success: true,
+      cars,
+    });
+  } catch (error) {
+    console.error("Get owner cars error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch owner cars",
+    });
+  }
+};
+
