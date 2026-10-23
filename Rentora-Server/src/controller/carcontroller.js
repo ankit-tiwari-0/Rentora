@@ -343,3 +343,108 @@ export const getDashboardData = async (req, res) => {
         });
     }
 };
+
+
+// API to update user profile image
+export const updateUserImage = async (req, res) => {
+    const imageFile = req.file;
+
+    try {
+        const userId = req.userId;
+
+        // Check authentication
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Please log in first",
+            });
+        }
+
+        // Check uploaded file
+        if (!imageFile) {
+            return res.status(400).json({
+                success: false,
+                message: "Please upload a profile image",
+            });
+        }
+
+        // Validate file type
+        const allowedMimeTypes = [
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+        ];
+
+        if (!allowedMimeTypes.includes(imageFile.mimetype)) {
+            return res.status(400).json({
+                success: false,
+                message: "Only JPG, PNG, and WebP images are allowed",
+            });
+        }
+
+        // Validate file size: maximum 5 MB
+        if (imageFile.size > 5 * 1024 * 1024) {
+            return res.status(400).json({
+                success: false,
+                message: "Image size must not exceed 5 MB",
+            });
+        }
+
+        // Read temporary file
+        const fileBuffer = await fs.readFile(imageFile.path);
+
+        // Upload image to ImageKit
+        const response = await imagekit.files.upload({
+            file: fileBuffer.toString("base64"),
+            fileName: `${userId}-${Date.now()}${path.extname(imageFile.originalname)}`,
+            folder: "/users",
+        });
+
+        // Build optimized image URL
+        const optimizedImageUrl = imagekit.helper.buildSrc({
+            urlEndpoint: process.env.ENDPOINT,
+            src: response.filePath,
+            transformation: [
+                { width: "400" },
+                { quality: "auto" },
+                { format: "webp" },
+            ],
+        });
+
+        // Update profile image in database
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { image: optimizedImageUrl },
+            {
+                new: true,
+                runValidators: true,
+            }
+        ).select("-password -passwordHash");
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile image updated successfully",
+            image: optimizedImageUrl,
+            user,
+        });
+    } catch (error) {
+        console.error("Update user image error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to update profile image",
+        });
+    } finally {
+        // Delete temporary file created by Multer
+        if (imageFile?.path) {
+            await fs.unlink(imageFile.path).catch(() => {});
+        }
+    }
+};
