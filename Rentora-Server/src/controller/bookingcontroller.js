@@ -1,6 +1,6 @@
 
 import mongoose from "mongoose";
-import Booking from "../model/Booking.js";
+import Booking from "../model/BookingModel.js";
 import Car from "../model/carmodel.js";
 import User from "../model/user.js";
 

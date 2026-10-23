@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import fs from "fs";
 import Car from "../model/carmodel.js";
 import imagekit from "../config/imageKit.js";
+import Booking from "../model/BookingModel.js";
 
 // API to add a car
 export const addCar = async (req, res) => {
@@ -182,44 +183,163 @@ export const DeleteCar = async (req, res) => {
     }
 };
 
-
 // API to get owner dashboard data
 export const getDashboardData = async (req, res) => {
     try {
-        const owner = req.userId;
+        const ownerId = req.userId;
 
-        // Get all cars belonging to this owner
-        const cars = await Car.find({ owner });
+        if (!ownerId) {
+            return res.status(401).json({
+                success: false,
+                message: "Please log in first",
+            });
+        }
 
-        // Calculate dashboard statistics
+        // Calculate the current month's date range
+        const now = new Date();
+
+        const monthStart = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            1
+        );
+
+        const nextMonthStart = new Date(
+            now.getFullYear(),
+            now.getMonth() + 1,
+            1
+        );
+
+        // Fetch cars, recent bookings, and statistics concurrently
+        const [
+            cars,
+            recentBookings,
+            totalBookings,
+            pendingBookings,
+            confirmedBookings,
+            cancelledBookings,
+            monthlyRevenue,
+        ] = await Promise.all([
+            // Fetch all cars belonging to this owner
+            Car.find({ owner: ownerId })
+                .sort({ createdAt: -1 })
+                .lean(),
+
+            // Fetch the five most recent bookings
+            Booking.find({ owner: ownerId })
+                .populate("car")
+                .populate("user", "name email")
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .lean(),
+
+            // Total bookings
+            Booking.countDocuments({
+                owner: ownerId,
+            }),
+
+            // Pending bookings
+            Booking.countDocuments({
+                owner: ownerId,
+                status: "pending",
+            }),
+
+            // Confirmed bookings
+            Booking.countDocuments({
+                owner: ownerId,
+                status: "confirmed",
+            }),
+
+            // Cancelled bookings
+            Booking.countDocuments({
+                owner: ownerId,
+                status: "cancelled",
+            }),
+
+            // Value of confirmed bookings created this month
+            Booking.aggregate([
+                {
+                    $match: {
+                        owner: new mongoose.Types.ObjectId(ownerId),
+                        status: "confirmed",
+                        createdAt: {
+                            $gte: monthStart,
+                            $lt: nextMonthStart,
+                        },
+                    },
+                },
+                {
+                    $group: {
+                        _id: null,
+                        total: {
+                            $sum: "$price",
+                        },
+                    },
+                },
+            ]),
+        ]);
+
+        // Car statistics
         const totalCars = cars.length;
 
         const listedCars = cars.filter(
             (car) => car.isListed !== false
         ).length;
 
+        const unlistedCars = totalCars - listedCars;
+
         const availableCars = cars.filter(
-            (car) => car.isAvailable && car.isListed !== false
+            (car) =>
+                car.isAvailable === true &&
+                car.isListed !== false
         ).length;
 
-        const unavailableCars = totalCars - availableCars;
+        const unavailableCars = cars.filter(
+            (car) =>
+                car.isAvailable === false &&
+                car.isListed !== false
+        ).length;
+
+        // Monthly confirmed booking value
+        const monthlyConfirmedBookingValue =
+            monthlyRevenue[0]?.total ?? 0;
+
+        // Prepare dashboard response
+        const dashboardData = {
+            // Car statistics
+            totalCars,
+            listedCars,
+            unlistedCars,
+            availableCars,
+            unavailableCars,
+
+            // Booking statistics
+            totalBookings,
+            pendingBookings,
+            confirmedBookings,
+            cancelledBookings,
+
+            // Revenue-related statistic
+            monthlyConfirmedBookingValue,
+
+            // Recent activity
+            recentBookings,
+
+            // Complete car list
+            cars,
+        };
 
         return res.status(200).json({
             success: true,
-            dashboardData: {
-                totalCars,
-                listedCars,
-                availableCars,
-                unavailableCars,
-                cars,
-            },
+            message: "Owner dashboard data fetched successfully",
+            dashboardData,
         });
     } catch (error) {
-        console.error("Get dashboard data error:", error);
+        console.error("Get owner dashboard data error:", error);
 
         return res.status(500).json({
             success: false,
-            message: "Failed to fetch dashboard data",
+            message: "Failed to fetch owner dashboard data",
         });
     }
 };

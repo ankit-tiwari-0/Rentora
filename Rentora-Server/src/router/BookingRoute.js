@@ -1,8 +1,7 @@
 
 import express from "express";
-
 import authUser from "../middleware/auth.js";
-import requireOwner from "../middleware/requireOwner.js";
+import requireOwner from "../middleware/requireOwner .js";
 
 import {
     checkAvailabilityOfCar,
@@ -10,7 +9,7 @@ import {
     getUserBookings,
     getOwnerBookings,
     changeBookingStatus,
-} from "../controllers/bookingController.js";
+} from "../controller/bookingcontroller.js";
 
 const bookingRoute = express.Router();
 
