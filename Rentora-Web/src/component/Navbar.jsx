@@ -1,18 +1,34 @@
+
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { Search, Menu, X, UserRound, LogOut, ChevronDown } from "lucide-react";
+import {
+  motion,
+  AnimatePresence,
+  useReducedMotion,
+} from "motion/react";
+import {
+  Search,
+  Menu,
+  X,
+  UserRound,
+  LogOut,
+  ChevronDown,
+  CalendarCheck,
+  CarFront,
+} from "lucide-react";
 import toast from "react-hot-toast";
-import { useAuth } from "./AuthProvider";
+
+import { useAppContext } from "../context/Appcontext";
 import logo from "../assets/ogo.png";
 
+// Navigation links
 const navLinks = [
   { label: "Home", to: "/" },
   { label: "Cars", to: "/cars" },
   { label: "My Bookings", to: "/my-bookings" },
-  { label: "List Cars", to: "/owner" },
 ];
 
+// Desktop navigation animations
 const navContainer = {
   hidden: {},
   visible: {
@@ -35,6 +51,7 @@ const navItem = {
   },
 };
 
+// Mobile navigation animations
 const mobileContainer = {
   hidden: {},
   visible: {
@@ -60,63 +77,90 @@ const mobileItem = {
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const { user, isAuthenticated, loading, logout } = useAuth();
+
+  const {
+  user,
+  isOwner,
+  authLoading,
+  logout,
+} = useAppContext();
+
   const navigate = useNavigate();
   const location = useLocation();
   const shouldReduceMotion = useReducedMotion();
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      setProfileOpen(false);
-      setMenuOpen(false);
-      toast.success("You have been logged out.");
-      navigate("/", { replace: true });
-    } catch (error) {
-      toast.error("Unable to log out. Please try again.");
-    }
-  };
+  const isAuthenticated = Boolean(user);
 
-  const closeProfile = () => setProfileOpen(false);
+  // Close menus when the route changes
+  useEffect(() => {
+    setMenuOpen(false);
+    setProfileOpen(false);
+  }, [location.pathname, location.search]);
 
+  // Close mobile navigation on desktop screen sizes
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 64rem)");
 
     const handleResize = (event) => {
-      if (event.matches) setMenuOpen(false);
+      if (event.matches) {
+        setMenuOpen(false);
+      }
     };
 
     mediaQuery.addEventListener("change", handleResize);
-    return () => mediaQuery.removeEventListener("change", handleResize);
-  }, []);
 
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [location.pathname, location.search]);
+    return () => {
+      mediaQuery.removeEventListener("change", handleResize);
+    };
+  }, []);
 
   const closeMenu = () => setMenuOpen(false);
 
+  const closeProfile = () => setProfileOpen(false);
+
+  // Logout using the AppContext function
+  const handleLogout = async () => {
+    try {
+      await logout();
+
+      setProfileOpen(false);
+      setMenuOpen(false);
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message ||
+          "Unable to log out. Please try again."
+      );
+    }
+  };
+
+  // Search cars
   const handleSearch = (event) => {
     event.preventDefault();
 
     const formData = new FormData(event.currentTarget);
     const query = formData.get("search")?.toString().trim();
 
-    if (!query) return;
+    if (!query) {
+      toast.error("Please enter a car name or brand.");
+      return;
+    }
 
     closeMenu();
+
     navigate(`/cars?search=${encodeURIComponent(query)}`);
   };
 
+  // Shared navigation link styles
   const linkStyles =
     "group relative rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition-colors duration-300 hover:bg-blue-50/80 hover:text-blue-600";
 
+  // Search form used on desktop and mobile
   const SearchForm = ({ mobile = false }) => (
     <motion.form
       onSubmit={handleSearch}
       whileFocus={{ scale: 1.015 }}
       className={`flex h-11 items-center rounded-full border border-slate-300 bg-white/70 transition-all duration-300 focus-within:border-blue-500 focus-within:bg-white focus-within:shadow-md focus-within:shadow-blue-500/10 focus-within:ring-2 focus-within:ring-blue-500/15 ${
-        mobile ? "w-full px-4" : "w-56 xl:w-60 px-3"
+        mobile ? "w-full px-4" : "w-56 px-3 xl:w-60"
       }`}
     >
       <input
@@ -132,13 +176,14 @@ const Navbar = () => {
         aria-label="Submit car search"
         whileHover={{ scale: 1.12, rotate: -8 }}
         whileTap={{ scale: 0.88 }}
-        className="rounded-full p-1.5 text-slate-500 hover:text-blue-600"
+        className="rounded-full p-1.5 text-slate-500 transition-colors hover:text-blue-600"
       >
         <Search size={19} />
       </motion.button>
     </motion.form>
   );
 
+  // Animated navigation link
   const AnimatedLink = ({
     label,
     to,
@@ -147,9 +192,7 @@ const Navbar = () => {
     <motion.div
       variants={mobile ? mobileItem : navItem}
       whileHover={
-        shouldReduceMotion || mobile
-          ? undefined
-          : { y: -2 }
+        shouldReduceMotion || mobile ? undefined : { y: -2 }
       }
       whileTap={{ scale: 0.97 }}
     >
@@ -180,9 +223,35 @@ const Navbar = () => {
     </motion.div>
   );
 
+// Login button shared by desktop and mobile
+const LoginButton = ({ mobile = false }) => (
+  <Link
+    to="/login"
+    onClick={closeMenu}
+    className={`${
+      mobile
+        ? "flex h-11 w-full items-center justify-center"
+        : "inline-flex h-11 items-center justify-center"
+    } rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition-colors duration-300 hover:bg-blue-700`}
+  >
+    Login
+  </Link>
+); 
+
+  // Loading placeholder
+  const LoadingPlaceholder = ({ mobile = false }) => (
+    <div
+      className={`h-11 animate-pulse rounded-xl bg-slate-200 ${
+        mobile ? "w-full" : "w-24"
+      }`}
+    />
+  );
+
   return (
     <motion.nav
-      initial={shouldReduceMotion ? false : { y: -25, opacity: 0 }}
+      initial={
+        shouldReduceMotion ? false : { y: -25, opacity: 0 }
+      }
       animate={{ y: 0, opacity: 1 }}
       transition={{
         duration: shouldReduceMotion ? 0 : 0.65,
@@ -191,13 +260,16 @@ const Navbar = () => {
       className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-[#f0f4f9]/95 shadow-sm backdrop-blur-xl"
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:h-20 sm:px-6 lg:px-8">
-
-        {/* Animated logo */}
+        {/* Logo */}
         <motion.div
-          initial={shouldReduceMotion ? false : { opacity: 0, x: -20 }}
+          initial={
+            shouldReduceMotion ? false : { opacity: 0, x: -20 }
+          }
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.65, delay: 0.1 }}
-          whileHover={shouldReduceMotion ? undefined : { scale: 1.04 }}
+          whileHover={
+            shouldReduceMotion ? undefined : { scale: 1.04 }
+          }
           whileTap={{ scale: 0.97 }}
           className="shrink-0"
         >
@@ -222,7 +294,8 @@ const Navbar = () => {
           animate="visible"
           className="hidden items-center gap-1 lg:flex xl:gap-3"
         >
-          {navLinks.slice(0, 3).map(({ label, to }) => (
+          {/* Main links */}
+          {navLinks.map(({ label, to }) => (
             <AnimatedLink
               key={to}
               label={label}
@@ -230,40 +303,43 @@ const Navbar = () => {
             />
           ))}
 
-          {/* Animated search */}
+          {/* Search */}
           <motion.div
             variants={navItem}
             className="mx-1"
-            whileHover={shouldReduceMotion ? undefined : { y: -1 }}
+            whileHover={
+              shouldReduceMotion ? undefined : { y: -1 }
+            }
           >
             <SearchForm />
           </motion.div>
 
-          <AnimatedLink
-            label="List Cars"
-            to="/owner"
-          />
+          {/* Owner dashboard link */}
+          {isOwner && (
+            <AnimatedLink
+              label="Owner Dashboard"
+              to="/owner"
+            />
+          )}
 
-          {/* Authentication / account dropdown */}
+          {/* Authentication */}
           <motion.div
             variants={navItem}
             whileTap={{ scale: 0.98 }}
             className="relative ml-1"
           >
-            {loading ? (
-              <div className="h-11 w-24 animate-pulse rounded-xl bg-slate-200" />
+            {authLoading ? (
+              <LoadingPlaceholder />
             ) : !isAuthenticated ? (
-              <Link
-                to="/login"
-                className="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition-colors duration-300 hover:bg-blue-700"
-              >
-                Login
-              </Link>
+              <LoginButton />
             ) : (
               <>
+                {/* Account button */}
                 <button
                   type="button"
-                  onClick={() => setProfileOpen((open) => !open)}
+                  onClick={() =>
+                    setProfileOpen((open) => !open)
+                  }
                   aria-expanded={profileOpen}
                   aria-label="Toggle account menu"
                   className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
@@ -271,41 +347,85 @@ const Navbar = () => {
                   <span className="flex size-8 items-center justify-center rounded-full bg-blue-50 text-blue-600">
                     <UserRound size={17} />
                   </span>
-                  <span className="max-w-28 truncate">{user?.name || "My Account"}</span>
+
+                  <span className="max-w-28 truncate">
+                    {user?.name || "My Account"}
+                  </span>
+
                   <ChevronDown
                     size={15}
-                    className={`transition-transform ${profileOpen ? "rotate-180" : ""}`}
+                    className={`transition-transform ${
+                      profileOpen ? "rotate-180" : ""
+                    }`}
                   />
                 </button>
 
+                {/* Account dropdown */}
                 <AnimatePresence>
                   {profileOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                      initial={{
+                        opacity: 0,
+                        y: -6,
+                        scale: 0.98,
+                      }}
+                      animate={{
+                        opacity: 1,
+                        y: 0,
+                        scale: 1,
+                      }}
+                      exit={{
+                        opacity: 0,
+                        y: -6,
+                        scale: 0.98,
+                      }}
                       transition={{ duration: 0.16 }}
-                      className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+                      className="absolute right-0 top-full z-50 mt-2 w-60 rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
                     >
+                      {/* User information */}
                       <div className="border-b border-slate-100 px-3 py-3">
                         <p className="truncate text-sm font-semibold text-slate-900">
                           {user?.name || "My Account"}
                         </p>
+
                         <p className="mt-1 truncate text-xs text-slate-500">
                           {user?.email}
                         </p>
+
+                        {isOwner && (
+                          <span className="mt-2 inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600">
+                            Car Owner
+                          </span>
+                        )}
                       </div>
+
+                      {/* My bookings */}
                       <Link
                         to="/my-bookings"
                         onClick={closeProfile}
-                        className="mt-1 block rounded-lg px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+                        className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-600"
                       >
+                        <CalendarCheck size={16} />
                         My Bookings
                       </Link>
+
+                      {/* Owner dashboard */}
+                      {isOwner && (
+                        <Link
+                          to="/owner"
+                          onClick={closeProfile}
+                          className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-600"
+                        >
+                          <CarFront size={16} />
+                          Owner Dashboard
+                        </Link>
+                      )}
+
+                      {/* Logout */}
                       <button
                         type="button"
                         onClick={handleLogout}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
                       >
                         <LogOut size={16} />
                         Logout
@@ -322,18 +442,45 @@ const Navbar = () => {
         <motion.button
           type="button"
           onClick={() => setMenuOpen((open) => !open)}
-          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-label={
+            menuOpen
+              ? "Close navigation menu"
+              : "Open navigation menu"
+          }
           aria-expanded={menuOpen}
           aria-controls="mobile-navigation"
-          whileTap={{ scale: 0.86, rotate: menuOpen ? -8 : 8 }}
+          whileTap={{
+            scale: 0.86,
+            rotate: menuOpen ? -8 : 8,
+          }}
           className="inline-flex size-10 items-center justify-center rounded-xl text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 lg:hidden"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.span
               key={menuOpen ? "close" : "menu"}
-              initial={shouldReduceMotion ? false : { opacity: 0, rotate: -45, scale: 0.7 }}
-              animate={{ opacity: 1, rotate: 0, scale: 1 }}
-              exit={shouldReduceMotion ? undefined : { opacity: 0, rotate: 45, scale: 0.7 }}
+              initial={
+                shouldReduceMotion
+                  ? false
+                  : {
+                      opacity: 0,
+                      rotate: -45,
+                      scale: 0.7,
+                    }
+              }
+              animate={{
+                opacity: 1,
+                rotate: 0,
+                scale: 1,
+              }}
+              exit={
+                shouldReduceMotion
+                  ? undefined
+                  : {
+                      opacity: 0,
+                      rotate: 45,
+                      scale: 0.7,
+                    }
+              }
               transition={{ duration: 0.18 }}
               className="flex"
             >
@@ -347,15 +494,23 @@ const Navbar = () => {
         </motion.button>
       </div>
 
-      {/* Animated mobile dropdown */}
+      {/* Mobile navigation dropdown */}
       <AnimatePresence initial={false}>
         {menuOpen && (
           <motion.div
             id="mobile-navigation"
             key="mobile-navigation"
-            initial={shouldReduceMotion ? false : { height: 0, opacity: 0 }}
+            initial={
+              shouldReduceMotion
+                ? false
+                : { height: 0, opacity: 0 }
+            }
             animate={{ height: "auto", opacity: 1 }}
-            exit={shouldReduceMotion ? undefined : { height: 0, opacity: 0 }}
+            exit={
+              shouldReduceMotion
+                ? undefined
+                : { height: 0, opacity: 0 }
+            }
             transition={{
               duration: shouldReduceMotion ? 0 : 0.3,
               ease: [0.16, 1, 0.3, 1],
@@ -364,10 +519,13 @@ const Navbar = () => {
           >
             <motion.div
               variants={mobileContainer}
-              initial={shouldReduceMotion ? false : "hidden"}
+              initial={
+                shouldReduceMotion ? false : "hidden"
+              }
               animate="visible"
               className="space-y-1 px-4 pb-5 pt-3 sm:px-6"
             >
+              {/* Mobile links */}
               {navLinks.map(({ label, to }) => (
                 <AnimatedLink
                   key={to}
@@ -377,45 +535,84 @@ const Navbar = () => {
                 />
               ))}
 
-              <motion.div variants={mobileItem} className="py-2">
+              {/* Mobile owner link */}
+              {isOwner && (
+                <AnimatedLink
+                  label="Owner Dashboard"
+                  to="/owner"
+                  mobile
+                />
+              )}
+
+              {/* Mobile search */}
+              <motion.div
+                variants={mobileItem}
+                className="py-2"
+              >
                 <SearchForm mobile />
               </motion.div>
 
-              <motion.div variants={mobileItem} className="pt-1">
-                {loading ? (
-                  <div className="h-11 w-full animate-pulse rounded-xl bg-slate-200" />
+              {/* Mobile authentication */}
+              <motion.div
+                variants={mobileItem}
+                className="pt-1"
+              >
+                {authLoading ? (
+                  <LoadingPlaceholder mobile />
                 ) : !isAuthenticated ? (
-                  <Link
-                    to="/login"
-                    onClick={closeMenu}
-                    className="flex h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors duration-300 hover:bg-blue-700 active:scale-[0.98]"
-                  >
-                    Login
-                  </Link>
+                  <LoginButton mobile />
                 ) : (
                   <div className="rounded-xl border border-slate-200 bg-white p-3">
+                    {/* Mobile user information */}
                     <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
                       <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
                         <UserRound size={19} />
                       </span>
+
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-slate-900">
                           {user?.name || "My Account"}
                         </p>
-                        <p className="truncate text-xs text-slate-500">{user?.email}</p>
+
+                        <p className="truncate text-xs text-slate-500">
+                          {user?.email}
+                        </p>
+
+                        {isOwner && (
+                          <span className="mt-1 inline-block text-xs font-medium text-blue-600">
+                            Car Owner
+                          </span>
+                        )}
                       </div>
                     </div>
+
+                    {/* Mobile bookings */}
                     <Link
                       to="/my-bookings"
                       onClick={closeMenu}
-                      className="mt-2 block rounded-lg px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-blue-600"
+                      className="mt-2 flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-600"
                     >
+                      <CalendarCheck size={16} />
                       My Bookings
                     </Link>
+
+                    {/* Mobile owner dashboard */}
+                    {isOwner && (
+                      <Link
+                        to="/owner"
+                        onClick={closeMenu}
+                        className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-600"
+                      >
+                        <CarFront size={16} />
+                        Owner Dashboard
+                      </Link>
+                    )}
+
+                    {/* Mobile logout */}
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
                     >
                       <LogOut size={16} />
                       Logout

@@ -20,9 +20,10 @@ import {
   Compass,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { useAuth } from "../component/AuthProvider";
 import logo from "../assets/ogo.png";
 import carImage from "../assets/car-heroo.png";
+import { useAppContext } from "../context/Appcontext";
+import axios from "axios";
 
 const Login = () => {
   const [mode, setMode] = useState("login");
@@ -38,7 +39,13 @@ const Login = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated } = useAuth();
+  const {
+  user,
+  fetchUser,
+  authLoading,
+} = useAppContext();
+
+const isAuthenticated = Boolean(user);
   const reduceMotion = useReducedMotion();
 
   const redirectTo = location.state?.from || "/";
@@ -55,91 +62,125 @@ const Login = () => {
     setShowPassword(false);
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+const handleSubmit = async (event) => {
+  event.preventDefault();
 
-    const email = form.email.trim().toLowerCase();
-    const password = form.password;
+  const email = form.email.trim().toLowerCase();
+  const password = form.password;
 
-    if (!email || !password) {
-      toast.error("Please fill in all required fields.");
-      return;
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error("Enter a valid email address.");
-      return;
-    }
-
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
-      return;
-    }
-
-    if (mode === "signup") {
-      if (!form.name.trim()) {
-        toast.error("Please enter your full name.");
-        return;
-      }
-
-      if (password !== form.confirmPassword) {
-        toast.error("Passwords do not match.");
-        return;
-      }
-    }
-
-    setSubmitting(true);
-
-    try {
-      // Replace with your real backend authentication API.
-      await login({
-        name: mode === "signup" ? form.name.trim() : "",
-        email,
-      });
-
-      toast.success(
-        mode === "signup"
-          ? "Demo account created successfully!"
-          : "Welcome back to Rentora!"
-      );
-
-      navigate(redirectTo, { replace: true });
-    } catch (error) {
-      toast.error(
-        error.message || "Something went wrong. Please try again."
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (isAuthenticated) {
-    return (
-      <div className="flex min-h-[70vh] items-center justify-center px-5">
-        <div className="text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-            <ShieldCheck size={28} />
-          </div>
-
-          <h1 className="mt-4 text-xl font-bold text-slate-900">
-            You're already signed in
-          </h1>
-
-          <p className="mt-2 text-sm text-slate-500">
-            Your Rentora demo session is active.
-          </p>
-
-          <button
-            type="button"
-            onClick={() => navigate("/", { replace: true })}
-            className="mt-5 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            Continue to Rentora
-          </button>
-        </div>
-      </div>
-    );
+  if (!email || !password) {
+    toast.error("Please fill in all required fields.");
+    return;
   }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    toast.error("Enter a valid email address.");
+    return;
+  }
+
+  if (password.length < 8) {
+    toast.error("Password must be at least 8 characters.");
+    return;
+  }
+
+  if (mode === "signup") {
+    if (!form.name.trim()) {
+      toast.error("Please enter your full name.");
+      return;
+    }
+
+    if (password !== form.confirmPassword) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+  }
+
+  setSubmitting(true);
+
+  try {
+    const endpoint =
+      mode === "login"
+        ? "/api/user/login"
+        : "/api/user/register";
+
+    const payload =
+      mode === "login"
+        ? { email, password }
+        : {
+            name: form.name.trim(),
+            email,
+            password,
+          };
+
+    const { data } = await axios.post(endpoint, payload, {
+      withCredentials: true,
+    });
+
+    if (!data.success) {
+      throw new Error(data.message || "Authentication failed.");
+    }
+
+    // Refresh the shared authentication state.
+    await fetchUser();
+
+    toast.success(
+      mode === "login"
+        ? "Welcome back to Rentora!"
+        : "Your Rentora account has been created!"
+    );
+
+    navigate(redirectTo, { replace: true });
+  } catch (error) {
+    toast.error(
+      error.response?.data?.message ||
+        error.message ||
+        "Something went wrong. Please try again."
+    );
+  } finally {
+    setSubmitting(false);
+  }
+};  
+
+  if (authLoading) {
+  return (
+    <div className="flex min-h-[70vh] items-center justify-center px-5">
+      <div className="text-center">
+        <div className="mx-auto size-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+        <p className="mt-4 text-sm text-slate-500">
+          Checking your session...
+        </p>
+      </div>
+    </div>
+  );
+}
+
+if (isAuthenticated) {
+  return (
+    <div className="flex min-h-[70vh] items-center justify-center px-5">
+      <div className="text-center">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+          <ShieldCheck size={28} />
+        </div>
+
+        <h1 className="mt-4 text-xl font-bold text-slate-900">
+          You're already signed in
+        </h1>
+
+        <p className="mt-2 text-sm text-slate-500">
+          Your Rentora session is active.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => navigate("/", { replace: true })}
+          className="mt-5 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+        >
+          Continue to Rentora
+        </button>
+      </div>
+    </div>
+  );
+}
 
   return (
     <main className="relative min-h-[calc(100vh-72px)] overflow-hidden bg-[#081329] p-3 sm:p-5 lg:p-8">

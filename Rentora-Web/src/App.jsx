@@ -16,7 +16,7 @@ import Dashboard from "./pages/owner/Dashboard";
 import AddCar from "./pages/owner/AddCar";
 import ManageBooking from "./pages/owner/ManageBooking";
 import ManageCars from "./pages/owner/ManageCars";
-
+import {Toaster} from 'react-hot-toast'
 // Protect routes that require authentication.
 const RequireAuth = () => {
   const { isAuthenticated, loading } = useAuth();
@@ -50,6 +50,7 @@ const PublicLayout = () => {
 
   return (
     <>
+    <Toaster />
       {!isOwnerPage && <Navbar />}
 
       <Routes>
