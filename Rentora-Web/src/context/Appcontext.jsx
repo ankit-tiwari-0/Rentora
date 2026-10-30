@@ -132,6 +132,90 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+
+  // Add a car
+const addCar = async (carData) => {
+    try {
+        const formData = new FormData();
+
+        // Send all car details as a single JSON string
+        const { image, ...carDetails } = carData;
+
+        formData.append("carData", JSON.stringify(carDetails));
+
+        // Send the image separately
+        formData.append("image", image);
+
+        const { data } = await axios.post(
+            "/api/car/add-car",
+            formData
+        );
+
+        if (data.success) {
+            toast.success(data.message || "Car added successfully!");
+            await fetchCars();
+            return data;
+        }
+
+        throw new Error(data.message || "Failed to add car");
+    } catch (error) {
+        toast.error(
+            error.response?.data?.message || error.message || "Something went wrong"
+        );
+        throw error;
+    }
+};
+
+// Get owner's cars
+const fetchOwnerCars = async () => {
+    const { data } = await axios.get("/api/car/cars");
+
+    if (!data.success) {
+        throw new Error(data.message || "Failed to fetch your cars");
+    }
+
+    return data.cars;
+};
+
+// Toggle car availability
+const toggleCar = async (carId) => {
+    const { data } = await axios.patch(
+        `/api/car/toggle-car/${carId}`
+    );
+
+    if (!data.success) {
+        throw new Error(data.message || "Failed to update availability");
+    }
+
+    return data;
+};
+
+// Delete a car
+const deleteCar = async (carId) => {
+    const { data } = await axios.delete(
+        `/api/car/delete-car/${carId}`
+    );
+
+    if (!data.success) {
+        throw new Error(data.message || "Failed to delete car");
+    }
+
+    return data;
+};
+
+// Get owner dashboard statistics
+const fetchDashboardData = async () => {
+    const { data } = await axios.get("/api/car/dashboard");
+
+    if (!data.success) {
+        throw new Error(data.message || "Failed to load dashboard");
+    }
+
+    return data;
+};
+
+
+
   // Shared context values
   const value = {
     axios,
@@ -162,6 +246,12 @@ export const AppProvider = ({ children }) => {
     fetchUser,
     fetchCars,
     logout,
+     // Car API functions
+    addCar,
+    fetchOwnerCars,
+    toggleCar,
+    deleteCar,
+    fetchDashboardData,
   };
 
   return (

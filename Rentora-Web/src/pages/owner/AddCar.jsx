@@ -1,6 +1,7 @@
 
 import { useRef, useState } from "react";
 import { motion } from "motion/react";
+import { useAppContext } from "../../context/Appcontext";
 import {
   CarFront,
   Plus,
@@ -53,6 +54,7 @@ const AddCar = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const fileInputRef = useRef(null);
+  const { addCar } = useAppContext();
 
   const updateField = (event) => {
     const { name, value } = event.target;
@@ -141,105 +143,82 @@ const AddCar = () => {
     }
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setError("");
-    setSuccess("");
+const handleSubmit = async (event) => {
+  event.preventDefault();
+  setError("");
+  setSuccess("");
 
-    if (!form.brand.trim() || !form.model.trim()) {
-      setError("Please enter both the vehicle brand and model.");
-      return;
-    }
+  if (!form.brand.trim() || !form.model.trim()) {
+    setError("Please enter both the vehicle brand and model.");
+    return;
+  }
 
-    const year = Number(form.year);
-    const price = Number(form.dailyPrice);
-    const seats = Number(form.seatingCapacity);
+  if (!image) {
+    setError("Please select a vehicle image.");
+    return;
+  }
 
-    if (!Number.isInteger(year) || year < 1900 || year > new Date().getFullYear() + 1) {
-      setError("Please enter a valid vehicle year.");
-      return;
-    }
+  const year = Number(form.year);
+  const price = Number(form.dailyPrice);
+  const seats = Number(form.seatingCapacity);
 
-    if (!Number.isFinite(price) || price <= 0) {
-      setError("Daily rental price must be greater than zero.");
-      return;
-    }
+  if (
+    !Number.isInteger(year) ||
+    year < 1900 ||
+    year > new Date().getFullYear() + 1
+  ) {
+    setError("Please enter a valid vehicle year.");
+    return;
+  }
 
-    if (!Number.isInteger(seats) || seats < 1 || seats > 50) {
-      setError("Please enter a valid seating capacity.");
-      return;
-    }
+  if (!Number.isFinite(price) || price <= 0) {
+    setError("Daily rental price must be greater than zero.");
+    return;
+  }
 
-    setSubmitting(true);
+  if (!Number.isInteger(seats) || seats < 1 || seats > 50) {
+    setError("Please enter a valid seating capacity.");
+    return;
+  }
 
-    try {
-      /*
-      ============================================================
-      BACKEND INTEGRATION: ADD VEHICLE
-      ============================================================
+  setSubmitting(true);
 
-      When your Node.js/Express backend is ready:
+  try {
+    await addCar({
+      brand: form.brand.trim(),
+      model: form.model.trim(),
+      year,
+      pricePerDay: price,
+      category: form.category,
+      transmission: form.transmission,
+      fuel_type: form.fuelType,
+      seating_capacity: seats,
+      location: form.location.trim(),
+      description: form.description.trim(),
+      features: JSON.stringify(features),
+      image,
+    });
 
-      1. Create a POST endpoint, for example:
-         POST /api/owner/cars
+    setSuccess("Car added successfully!");
+    setForm(initialForm);
+    setFeatures([]);
+    setFeatureInput("");
+    removeImage();
+  } catch (submitError) {
+    console.error(
+      "Add car error:",
+      submitError.response?.data || submitError.message
+    );
 
-      2. Send the form fields and image using FormData:
-
-         const formData = new FormData();
-
-         Object.entries(form).forEach(([key, value]) => {
-           formData.append(key, value);
-         });
-
-         formData.append("features", JSON.stringify(features));
-
-         if (image) {
-           formData.append("image", image);
-         }
-
-      3. Send the request using fetch or Axios.
-         Include your authentication token/cookie as required.
-
-      4. On the backend:
-         - Authenticate and authorize the vehicle owner.
-         - Validate all submitted fields.
-         - Upload the image to your chosen storage service.
-         - Save the vehicle details and image URL in MongoDB.
-         - Return the created vehicle record.
-
-      5. Handle API errors and navigate to Manage Cars
-         only after the server confirms successful creation.
-
-      IMPORTANT:
-      Do not send the raw image URL from the browser as a
-      substitute for uploading the actual image file.
-      ============================================================
-      */
-
-      // Frontend demonstration only. No database/API request is made.
-      await new Promise((resolve) => setTimeout(resolve, 400));
-
-      const carDraft = {
-        ...form,
-        year,
-        dailyPrice: price,
-        seatingCapacity: seats,
-        features,
-        image, // File object, not a persistent image URL.
-      };
-
-      console.log("Vehicle draft (frontend only):", carDraft);
-
-      setSuccess(
-        "Form validated successfully. Backend integration is still pending; no vehicle has been saved."
-      );
-    } catch (submitError) {
-      setError("Something went wrong. Please try again.");
-      console.error(submitError);
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    setError(
+      submitError.response?.data?.message ||
+        submitError.message ||
+        "Failed to add car. Please try again."
+    );
+  } finally {
+    setSubmitting(false);
+  }
+};  
 
   return (
     <motion.div
@@ -660,7 +639,7 @@ const AddCar = () => {
               {submitting ? (
                 <>
                   <LoaderCircle size={17} className="animate-spin" />
-                  Validating...
+                     Adding Car...
                 </>
               ) : (
                 <>
