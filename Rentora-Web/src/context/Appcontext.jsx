@@ -70,36 +70,36 @@ export const AppProvider = ({ children }) => {
   };
 
 
-// Fetch available car listings
-const fetchCars = useCallback(async () => {
-  setLoading(true);
+  // Fetch available car listings
+  const fetchCars = useCallback(async () => {
+    setLoading(true);
 
-  try {
-    console.log("Fetching cars from:", axios.defaults.baseURL);
+    try {
+      console.log("Fetching cars from:", axios.defaults.baseURL);
 
-    const { data } = await axios.get("/api/user/cars");
+      const { data } = await axios.get("/api/user/cars");
 
-    console.log("Cars API response:", data);
+      console.log("Cars API response:", data);
 
-    if (data.success) {
-      setCars(data.cars || []);
-    } else {
+      if (data.success) {
+        setCars(data.cars || []);
+      } else {
+        setCars([]);
+        console.error("Unable to fetch cars:", data.message);
+      }
+    } catch (error) {
       setCars([]);
-      console.error("Unable to fetch cars:", data.message);
-    }
-  } catch (error) {
-    setCars([]);
 
-    console.error("Fetch cars error:", {
-      message: error.message,
-      status: error.response?.status,
-      response: error.response?.data,
-    });
-  } finally {
-    setLoading(false);
-    console.log("Car loading finished");
-  }
-}, []);
+      console.error("Fetch cars error:", {
+        message: error.message,
+        status: error.response?.status,
+        response: error.response?.data,
+      });
+    } finally {
+      setLoading(false);
+      console.log("Car loading finished");
+    }
+  }, []);
 
 
   // Restore the session and load cars when the app starts
@@ -143,85 +143,185 @@ const fetchCars = useCallback(async () => {
 
 
   // Add a car
-const addCar = async (carData) => {
+  const addCar = async (carData) => {
     try {
-        const formData = new FormData();
+      const formData = new FormData();
 
-        // Send all car details as a single JSON string
-        const { image, ...carDetails } = carData;
+      // Send all car details as a single JSON string
+      const { image, ...carDetails } = carData;
 
-        formData.append("carData", JSON.stringify(carDetails));
+      formData.append("carData", JSON.stringify(carDetails));
 
-        // Send the image separately
-        formData.append("image", image);
+      // Send the image separately
+      formData.append("image", image);
 
-        const { data } = await axios.post(
-            "/api/car/add-car",
-            formData
-        );
+      const { data } = await axios.post(
+        "/api/car/add-car",
+        formData
+      );
 
-        if (data.success) {
-            toast.success(data.message || "Car added successfully!");
-            await fetchCars();
-            return data;
-        }
+      if (data.success) {
+        toast.success(data.message || "Car added successfully!");
+        await fetchCars();
+        return data;
+      }
 
-        throw new Error(data.message || "Failed to add car");
+      throw new Error(data.message || "Failed to add car");
     } catch (error) {
-        toast.error(
-            error.response?.data?.message || error.message || "Something went wrong"
-        );
-        throw error;
+      toast.error(
+        error.response?.data?.message || error.message || "Something went wrong"
+      );
+      throw error;
     }
-};
+  };
 
-// Get owner's cars
-const fetchOwnerCars = async () => {
+  // Get owner's cars
+  const fetchOwnerCars = async () => {
     const { data } = await axios.get("/api/car/cars");
 
     if (!data.success) {
-        throw new Error(data.message || "Failed to fetch your cars");
+      throw new Error(data.message || "Failed to fetch your cars");
     }
 
     return data.cars;
-};
+  };
 
-// Toggle car availability
-const toggleCar = async (carId) => {
+  // Toggle car availability
+  const toggleCar = async (carId) => {
     const { data } = await axios.patch(
-        `/api/car/toggle-car/${carId}`
+      `/api/car/toggle-car/${carId}`
     );
 
     if (!data.success) {
-        throw new Error(data.message || "Failed to update availability");
+      throw new Error(data.message || "Failed to update availability");
     }
 
     return data;
-};
+  };
 
-// Delete a car
-const deleteCar = async (carId) => {
+  // Delete a car
+  const deleteCar = async (carId) => {
     const { data } = await axios.delete(
-        `/api/car/delete-car/${carId}`
+      `/api/car/delete-car/${carId}`
     );
 
     if (!data.success) {
-        throw new Error(data.message || "Failed to delete car");
+      throw new Error(data.message || "Failed to delete car");
     }
 
     return data;
-};
+  };
 
-// Get owner dashboard statistics
-const fetchDashboardData = async () => {
+  // Get owner dashboard statistics
+  const fetchDashboardData = async () => {
     const { data } = await axios.get("/api/car/dashboard");
 
     if (!data.success) {
-        throw new Error(data.message || "Failed to load dashboard");
+      throw new Error(data.message || "Failed to load dashboard");
     }
 
     return data;
-};
+  };
+
+
+  // Check car availability
+  const checkAvailability = async ({ location, pickupDate, returnDate }) => {
+    try {
+      const { data } = await axios.post("/api/booking/check-availability", {
+        location,
+        pickupDate,
+        returnDate,
+      });
+
+      return data;
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || "Failed to check car availability"
+      );
+      throw error;
+    }
+  };
+
+  // Create a booking
+  const createBooking = async ({ car, pickupDate, returnDate }) => {
+    try {
+      const { data } = await axios.post("/api/booking/create", {
+        car,
+        pickupDate,
+        returnDate,
+      });
+
+      if (data.success) {
+        toast.success(data.message || "Booking created successfully");
+        return data;
+      }
+
+      throw new Error(data.message || "Failed to create booking");
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || error.message || "Booking failed"
+      );
+      throw error;
+    }
+  };
+
+  // Fetch bookings for the logged-in user
+  const fetchUserBookings = async () => {
+    try {
+      const { data } = await axios.get("/api/booking/user");
+
+      if (data.success) {
+        return data.bookings;
+      }
+
+      throw new Error(data.message || "Failed to fetch bookings");
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || error.message || "Failed to fetch bookings"
+      );
+      throw error;
+    }
+  };
+
+  // Fetch bookings for the owner
+  const fetchOwnerBookings = async () => {
+    try {
+      const { data } = await axios.get("/api/booking/owner");
+
+      if (data.success) {
+        return data.bookings;
+      }
+
+      throw new Error(data.message || "Failed to fetch owner bookings");
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || error.message || "Failed to fetch owner bookings"
+      );
+      throw error;
+    }
+  };
+
+  // Change booking status (owner only)
+  const changeBookingStatus = async ({ bookingId, status }) => {
+    try {
+      const { data } = await axios.post("/api/booking/change-status", {
+        bookingId,
+        status,
+      });
+
+      if (data.success) {
+        toast.success(data.message || "Booking status updated successfully");
+        return data;
+      }
+
+      throw new Error(data.message || "Failed to update booking status");
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || error.message || "Failed to update booking status"
+      );
+      throw error;
+    }
+  };
 
 
 
@@ -255,12 +355,18 @@ const fetchDashboardData = async () => {
     fetchUser,
     fetchCars,
     logout,
-     // Car API functions
+    // Car API functions
     addCar,
     fetchOwnerCars,
     toggleCar,
     deleteCar,
     fetchDashboardData,
+
+    checkAvailability,
+    createBooking,
+    fetchUserBookings,
+    fetchOwnerBookings,
+    changeBookingStatus,
   };
 
   return (
