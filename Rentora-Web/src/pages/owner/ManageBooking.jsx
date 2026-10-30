@@ -186,6 +186,17 @@ const ManageBooking = () => {
           View
         </button>
 
+        {status === "pending" && (
+          <button
+            type="button"
+            disabled={isUpdating}
+            onClick={() => updateStatus(booking, "confirmed")}
+            className="rounded-lg border border-emerald-200 px-3 py-2 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isUpdating ? "Updating..." : "Confirm"}
+          </button>
+        )}
+
         {canChangeStatus && (
           <button
             type="button"

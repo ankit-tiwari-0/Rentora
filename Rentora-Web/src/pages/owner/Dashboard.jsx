@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   CalendarDays,
   ArrowUpRight,
-  IndianRupee,
   TrendingUp,
   Clock3,
   RefreshCw,
@@ -35,38 +34,63 @@ const itemVariants = {
 };
 
 const Dashboard = () => {
-  const { fetchOwnerCars } = useAppContext();
+  const {
+    fetchOwnerCars,
+    fetchOwnerBookings,
+    currency = "₹",
+  } = useAppContext();
 
   const [cars, setCars] = useState([]);
+  const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [bookingError, setBookingError] = useState("");
 
-  // Fetch actual owner cars from the existing Car API.
+  // Fetch cars and bookings independently so one API failure
+  // does not prevent the other dashboard section from loading.
   const loadDashboard = async () => {
+    setLoading(true);
+    setError("");
+
     try {
-      setLoading(true);
-      setError("");
-
       const response = await fetchOwnerCars();
-
-      // Support either an array or an object containing a cars array.
       const ownerCars = Array.isArray(response)
         ? response
         : Array.isArray(response?.cars)
           ? response.cars
           : [];
-
       setCars(ownerCars);
     } catch (err) {
-      console.error("Dashboard loading error:", err);
-
+      console.error("Dashboard car loading error:", err);
       setError(
         err?.response?.data?.message ||
           err?.message ||
-          "Failed to load dashboard data."
+          "Failed to load your vehicles."
       );
     } finally {
       setLoading(false);
+    }
+
+    setBookingsLoading(true);
+    setBookingError("");
+
+    try {
+      const response = await fetchOwnerBookings();
+      if (!Array.isArray(response)) {
+        throw new Error("Invalid bookings response from the server.");
+      }
+      setBookings(response);
+    } catch (err) {
+      console.error("Dashboard booking loading error:", err);
+      setBookings([]);
+      setBookingError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to load bookings."
+      );
+    } finally {
+      setBookingsLoading(false);
     }
   };
 
@@ -77,20 +101,42 @@ const Dashboard = () => {
   // Actual car count from the backend.
   const totalCars = cars.length;
 
-  /*
-   * TODO(booking-api):
-   * Integrate the Booking API later.
-   *
-   * Fetch total bookings, pending bookings, completed bookings,
-   * recent bookings, and monthly revenue from the backend.
-   *
-   * Do not display fabricated statistics.
-   */
-  const totalBookings = null;
-  const pendingBookings = null;
-  const completedBookings = null;
-  const monthlyRevenue = null;
-  const recentBookings = [];
+  // Derive booking statistics from real backend records.
+  const totalBookings = bookings.length;
+
+  const pendingBookings = bookings.filter(
+    (booking) => String(booking.status || "").toLowerCase() === "pending"
+  ).length;
+
+  const completedBookings = bookings.filter(
+    (booking) => String(booking.status || "").toLowerCase() === "completed"
+  ).length;
+
+  const recentBookings = [...bookings]
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt || 0).getTime() -
+        new Date(a.createdAt || 0).getTime()
+    )
+    .slice(0, 5);
+
+  // Provisional: completed booking value, not verified collected revenue.
+  const now = new Date();
+  const monthlyRevenue = bookings
+    .filter((booking) => {
+      const createdAt = new Date(booking.createdAt);
+      return (
+        String(booking.status || "").toLowerCase() === "completed" &&
+        !Number.isNaN(createdAt.getTime()) &&
+        createdAt.getMonth() === now.getMonth() &&
+        createdAt.getFullYear() === now.getFullYear()
+      );
+    })
+    .reduce(
+      (total, booking) =>
+        total + Number(booking.totalPrice ?? booking.price ?? 0),
+      0
+    );
 
   const currentMonth = new Date().toLocaleDateString("en-IN", {
     month: "long",
@@ -112,7 +158,7 @@ const Dashboard = () => {
       icon: ClipboardList,
       color: "text-indigo-600",
       bg: "bg-indigo-50",
-      description: "Booking API pending",
+      description: "All customer reservations",
     },
     {
       title: "Pending Bookings",
@@ -120,7 +166,7 @@ const Dashboard = () => {
       icon: TriangleAlert,
       color: "text-amber-600",
       bg: "bg-amber-50",
-      description: "Booking API pending",
+      description: "Awaiting completion",
     },
     {
       title: "Completed Bookings",
@@ -128,7 +174,7 @@ const Dashboard = () => {
       icon: CheckCircle2,
       color: "text-emerald-600",
       bg: "bg-emerald-50",
-      description: "Booking API pending",
+      description: "Successfully completed",
     },
   ];
 
@@ -221,11 +267,17 @@ const Dashboard = () => {
                 transition={{ delay: 0.15, duration: 0.4 }}
                 className="mt-4 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl"
               >
-                {loading && stat.title === "Total Cars"
-                  ? "..."
-                  : stat.title === "Total Cars" && error
-                    ? "Unavailable"
-                    : formatNumber(stat.value)}
+                {stat.title === "Total Cars"
+                  ? loading
+                    ? "..."
+                    : error
+                      ? "Unavailable"
+                      : formatNumber(stat.value)
+                  : bookingsLoading
+                    ? "..."
+                    : bookingError
+                      ? "Unavailable"
+                      : formatNumber(stat.value)}
               </motion.p>
 
               <p className="mt-2 text-xs text-slate-400">
@@ -262,7 +314,24 @@ const Dashboard = () => {
           </div>
 
           <div className="divide-y divide-slate-100 px-5 sm:px-6">
-            {recentBookings.length === 0 ? (
+            {bookingsLoading ? (
+              <div className="py-10 text-center text-sm text-slate-500">
+                Loading bookings...
+              </div>
+            ) : bookingError ? (
+              <div className="py-10 text-center">
+                <p className="text-sm font-medium text-rose-600">
+                  Unable to load bookings
+                </p>
+                <button
+                  type="button"
+                  onClick={loadDashboard}
+                  className="mt-3 text-sm font-semibold text-blue-600 hover:text-blue-800"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : recentBookings.length === 0 ? (
               <div className="py-10 text-center">
                 <ClipboardList
                   className="mx-auto text-slate-300"
@@ -270,12 +339,11 @@ const Dashboard = () => {
                 />
 
                 <p className="mt-3 text-sm font-medium text-slate-700">
-                  Booking API integration pending
+                  No bookings yet
                 </p>
 
                 <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Recent bookings will appear here after the booking API
-                  is connected.
+                  New customer reservations will appear here.
                 </p>
               </div>
             ) : (
@@ -304,7 +372,7 @@ const Dashboard = () => {
 
                   <div className="shrink-0 text-right">
                     <p className="text-sm font-semibold text-slate-700">
-                      ₹
+                      {currency}
                       {Number(
                         booking.totalPrice ?? booking.price ?? 0
                       ).toLocaleString("en-IN")}
@@ -355,18 +423,18 @@ const Dashboard = () => {
           </div>
 
           <div className="mt-7 flex items-end gap-2">
-            <IndianRupee size={27} className="mb-1 text-blue-600" />
+            <span className="mb-1 text-2xl font-semibold text-blue-600">{currency}</span>
 
             <p className="text-3xl font-bold tracking-tight text-blue-600 sm:text-4xl">
               {formatNumber(monthlyRevenue)}
             </p>
           </div>
 
-          <div className="mt-6 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-3 text-xs text-emerald-700">
-            <TrendingUp size={16} />
-
+          <div className="mt-6 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-3 text-xs text-amber-700">
+            <TrendingUp size={16} className="mt-0.5 shrink-0" />
             <span>
-              Revenue calculation will be added with the Booking API.
+              Shows completed booking value for this month. This is not
+              confirmed payment revenue until payment records are integrated.
             </span>
           </div>
 
