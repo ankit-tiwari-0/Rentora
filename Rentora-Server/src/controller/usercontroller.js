@@ -1,6 +1,7 @@
 import User from "../model/user.js";
 import bcrypt from 'bcrypt'
 import generateToken from "../config/JWT.js";
+import Car from "../model/carmodel.js";
 
 export const registerUser = async (req, res)=>{
     try {
@@ -146,6 +147,26 @@ export const logoutUser = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Unable to log out"
+        });
+    }
+};
+
+
+// Get All Cars for the Frontend
+export const getCars = async (req, res) => {
+    try {
+        const cars = await Car.find({ isAvailable: true });
+
+        res.json({
+            success: true,
+            cars,
+        });
+    } catch (error) {
+        console.log(error.message);
+
+        res.json({
+            success: false,
+            message: error.message,
         });
     }
 };

@@ -1,9 +1,8 @@
-
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  motion,
   AnimatePresence,
+  motion,
   useReducedMotion,
 } from "motion/react";
 import {
@@ -18,24 +17,20 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
+// Keep this import path's capitalization consistent with your actual filename.
 import { useAppContext } from "../context/Appcontext";
 import logo from "../assets/ogo.png";
 
-// Navigation links
 const navLinks = [
   { label: "Home", to: "/" },
   { label: "Cars", to: "/cars" },
   { label: "My Bookings", to: "/my-bookings" },
 ];
 
-// Desktop navigation animations
 const navContainer = {
   hidden: {},
   visible: {
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2,
-    },
+    transition: { staggerChildren: 0.1, delayChildren: 0.2 },
   },
 };
 
@@ -44,21 +39,14 @@ const navItem = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: {
-      duration: 0.55,
-      ease: [0.16, 1, 0.3, 1],
-    },
+    transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] },
   },
 };
 
-// Mobile navigation animations
 const mobileContainer = {
   hidden: {},
   visible: {
-    transition: {
-      staggerChildren: 0.07,
-      delayChildren: 0.05,
-    },
+    transition: { staggerChildren: 0.07, delayChildren: 0.05 },
   },
 };
 
@@ -67,10 +55,7 @@ const mobileItem = {
   visible: {
     opacity: 1,
     x: 0,
-    transition: {
-      duration: 0.35,
-      ease: "easeOut",
-    },
+    transition: { duration: 0.3, ease: "easeOut" },
   },
 };
 
@@ -79,64 +64,84 @@ const Navbar = () => {
   const [profileOpen, setProfileOpen] = useState(false);
 
   const {
-  user,
-  isOwner,
-  authLoading,
-  logout,
-} = useAppContext();
+    user,
+    isOwner,
+    authLoading,
+    fetchUser,
+    logout,
+    axios,
+  } = useAppContext();
 
   const navigate = useNavigate();
   const location = useLocation();
   const shouldReduceMotion = useReducedMotion();
-
   const isAuthenticated = Boolean(user);
 
-  // Close menus when the route changes
-  useEffect(() => {
-    setMenuOpen(false);
-    setProfileOpen(false);
-  }, [location.pathname, location.search]);
-
-  // Close mobile navigation on desktop screen sizes
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(min-width: 64rem)");
-
-    const handleResize = (event) => {
-      if (event.matches) {
-        setMenuOpen(false);
-      }
-    };
-
-    mediaQuery.addEventListener("change", handleResize);
-
-    return () => {
-      mediaQuery.removeEventListener("change", handleResize);
-    };
-  }, []);
-
   const closeMenu = () => setMenuOpen(false);
-
   const closeProfile = () => setProfileOpen(false);
 
-  // Logout using the AppContext function
-  const handleLogout = async () => {
+  // Activate owner access. The backend must register POST /api/owner/change-role.
+  const changeRole = async () => {
     try {
-      await logout();
+      const { data } = await axios.post("/api/owner/change-role");
 
-      setProfileOpen(false);
-      setMenuOpen(false);
+      if (!data?.success) {
+        toast.error(data?.message || "Unable to activate owner access.");
+        return;
+      }
+
+      // Re-fetch the user so the role comes from the database.
+      if (typeof fetchUser === "function") {
+        await fetchUser();
+      }
+
+      closeProfile();
+      closeMenu();
+      toast.success(data.message || "Your owner account is ready!");
+      navigate("/owner");
     } catch (error) {
+      console.error(
+        "Change role error:",
+        error.response?.data || error.message
+      );
       toast.error(
         error.response?.data?.message ||
-          "Unable to log out. Please try again."
+          "Unable to activate owner access. Check the backend route."
       );
     }
   };
 
-  // Search cars
+  useEffect(() => {
+    closeMenu();
+    closeProfile();
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 64rem)");
+    const handleResize = (event) => {
+      if (event.matches) closeMenu();
+    };
+
+    mediaQuery.addEventListener("change", handleResize);
+    return () => mediaQuery.removeEventListener("change", handleResize);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      closeProfile();
+      closeMenu();
+      navigate("/");
+    } catch (error) {
+      console.error("Logout error:", error.response?.data || error.message);
+      toast.error(
+        error.response?.data?.message || "Unable to log out. Please try again."
+      );
+    }
+  };
+
   const handleSearch = (event) => {
     event.preventDefault();
-
     const formData = new FormData(event.currentTarget);
     const query = formData.get("search")?.toString().trim();
 
@@ -146,19 +151,16 @@ const Navbar = () => {
     }
 
     closeMenu();
-
+    closeProfile();
     navigate(`/cars?search=${encodeURIComponent(query)}`);
   };
 
-  // Shared navigation link styles
   const linkStyles =
     "group relative rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition-colors duration-300 hover:bg-blue-50/80 hover:text-blue-600";
 
-  // Search form used on desktop and mobile
   const SearchForm = ({ mobile = false }) => (
     <motion.form
       onSubmit={handleSearch}
-      whileFocus={{ scale: 1.015 }}
       className={`flex h-11 items-center rounded-full border border-slate-300 bg-white/70 transition-all duration-300 focus-within:border-blue-500 focus-within:bg-white focus-within:shadow-md focus-within:shadow-blue-500/10 focus-within:ring-2 focus-within:ring-blue-500/15 ${
         mobile ? "w-full px-4" : "w-56 px-3 xl:w-60"
       }`}
@@ -170,12 +172,11 @@ const Navbar = () => {
         aria-label="Search cars"
         className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
       />
-
       <motion.button
         type="submit"
         aria-label="Submit car search"
-        whileHover={{ scale: 1.12, rotate: -8 }}
-        whileTap={{ scale: 0.88 }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
         className="rounded-full p-1.5 text-slate-500 transition-colors hover:text-blue-600"
       >
         <Search size={19} />
@@ -183,17 +184,10 @@ const Navbar = () => {
     </motion.form>
   );
 
-  // Animated navigation link
-  const AnimatedLink = ({
-    label,
-    to,
-    mobile = false,
-  }) => (
+  const AnimatedLink = ({ label, to, mobile = false }) => (
     <motion.div
       variants={mobile ? mobileItem : navItem}
-      whileHover={
-        shouldReduceMotion || mobile ? undefined : { y: -2 }
-      }
+      whileHover={shouldReduceMotion || mobile ? undefined : { y: -2 }}
       whileTap={{ scale: 0.97 }}
     >
       <Link
@@ -201,16 +195,11 @@ const Navbar = () => {
         onClick={mobile ? closeMenu : undefined}
         tabIndex={mobile && !menuOpen ? -1 : undefined}
         aria-current={location.pathname === to ? "page" : undefined}
-        className={`${linkStyles} ${
-          mobile ? "block w-full" : "inline-block"
-        } ${
-          location.pathname === to
-            ? "bg-blue-50 text-blue-600"
-            : ""
+        className={`${linkStyles} ${mobile ? "block w-full" : "inline-block"} ${
+          location.pathname === to ? "bg-blue-50 text-blue-600" : ""
         }`}
       >
         {label}
-
         {!mobile && (
           <motion.span
             className="absolute inset-x-3 bottom-1 h-0.5 origin-left rounded-full bg-gradient-to-r from-blue-600 to-cyan-400"
@@ -223,38 +212,97 @@ const Navbar = () => {
     </motion.div>
   );
 
-// Login button shared by desktop and mobile
-const LoginButton = ({ mobile = false }) => (
-  <Link
-    to="/login"
-    onClick={closeMenu}
-    className={`${
-      mobile
-        ? "flex h-11 w-full items-center justify-center"
-        : "inline-flex h-11 items-center justify-center"
-    } rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition-colors duration-300 hover:bg-blue-700`}
-  >
-    Login
-  </Link>
-); 
+  const LoginButton = ({ mobile = false }) => (
+    <Link
+      to="/login"
+      onClick={closeMenu}
+      className={`${
+        mobile
+          ? "flex h-11 w-full items-center justify-center"
+          : "inline-flex h-11 items-center justify-center"
+      } rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition-colors duration-300 hover:bg-blue-700`}
+    >
+      Login
+    </Link>
+  );
 
-  // Loading placeholder
   const LoadingPlaceholder = ({ mobile = false }) => (
     <div
+      aria-label="Loading account"
       className={`h-11 animate-pulse rounded-xl bg-slate-200 ${
         mobile ? "w-full" : "w-24"
       }`}
     />
   );
 
+  const AccountActions = ({ mobile = false }) => (
+    <div className={mobile ? "rounded-xl border border-slate-200 bg-white p-3" : "absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl"}>
+      <div className={`border-b border-slate-100 ${mobile ? "flex items-center gap-3 pb-3" : "px-3 py-3"}`}>
+        {mobile && (
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+            <UserRound size={19} />
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-slate-900">
+            {user?.name || "My Account"}
+          </p>
+          <p className="mt-1 truncate text-xs text-slate-500">{user?.email}</p>
+          {isOwner && (
+            <span className="mt-2 inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600">
+              Car Owner
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Customers see List Your Car; owners see Owner Dashboard. */}
+      {!isOwner ? (
+        <button
+          type="button"
+          onClick={changeRole}
+          className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-slate-600 transition-colors hover:bg-blue-50 hover:text-blue-600"
+        >
+          <CarFront size={16} />
+          List Your Car
+        </button>
+      ) : (
+        <Link
+          to="/owner"
+          onClick={mobile ? closeMenu : closeProfile}
+          className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-blue-50 hover:text-blue-600"
+        >
+          <CarFront size={16} />
+          Owner Dashboard
+        </Link>
+      )}
+
+      <Link
+        to="/my-bookings"
+        onClick={mobile ? closeMenu : closeProfile}
+        className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-600"
+      >
+        <CalendarCheck size={16} />
+        My Bookings
+      </Link>
+
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+      >
+        <LogOut size={16} />
+        Logout
+      </button>
+    </div>
+  );
+
   return (
     <motion.nav
-      initial={
-        shouldReduceMotion ? false : { y: -25, opacity: 0 }
-      }
+      initial={shouldReduceMotion ? false : { y: -25, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{
-        duration: shouldReduceMotion ? 0 : 0.65,
+        duration: shouldReduceMotion ? 0 : 0.55,
         ease: [0.16, 1, 0.3, 1],
       }}
       className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-[#f0f4f9]/95 shadow-sm backdrop-blur-xl"
@@ -262,28 +310,15 @@ const LoginButton = ({ mobile = false }) => (
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:h-20 sm:px-6 lg:px-8">
         {/* Logo */}
         <motion.div
-          initial={
-            shouldReduceMotion ? false : { opacity: 0, x: -20 }
-          }
+          initial={shouldReduceMotion ? false : { opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.65, delay: 0.1 }}
-          whileHover={
-            shouldReduceMotion ? undefined : { scale: 1.04 }
-          }
+          transition={{ duration: 0.55, delay: 0.1 }}
+          whileHover={shouldReduceMotion ? undefined : { scale: 1.04 }}
           whileTap={{ scale: 0.97 }}
           className="shrink-0"
         >
-          <Link
-            to="/"
-            onClick={closeMenu}
-            aria-label="Rentora home"
-            className="block"
-          >
-            <img
-              src={logo}
-              alt="Rentora"
-              className="h-10 w-auto object-contain sm:h-12"
-            />
+          <Link to="/" onClick={closeMenu} aria-label="Rentora home" className="block">
+            <img src={logo} alt="Rentora" className="h-10 w-auto object-contain sm:h-12" />
           </Link>
         </motion.div>
 
@@ -294,142 +329,47 @@ const LoginButton = ({ mobile = false }) => (
           animate="visible"
           className="hidden items-center gap-1 lg:flex xl:gap-3"
         >
-          {/* Main links */}
           {navLinks.map(({ label, to }) => (
-            <AnimatedLink
-              key={to}
-              label={label}
-              to={to}
-            />
+            <AnimatedLink key={to} label={label} to={to} />
           ))}
 
-          {/* Search */}
-          <motion.div
-            variants={navItem}
-            className="mx-1"
-            whileHover={
-              shouldReduceMotion ? undefined : { y: -1 }
-            }
-          >
+          <motion.div variants={navItem} className="mx-1" whileHover={shouldReduceMotion ? undefined : { y: -1 }}>
             <SearchForm />
           </motion.div>
 
-          {/* Owner dashboard link */}
-          {isOwner && (
-            <AnimatedLink
-              label="Owner Dashboard"
-              to="/owner"
-            />
-          )}
+          {isOwner && <AnimatedLink label="Owner Dashboard" to="/owner" />}
 
-          {/* Authentication */}
-          <motion.div
-            variants={navItem}
-            whileTap={{ scale: 0.98 }}
-            className="relative ml-1"
-          >
+          <motion.div variants={navItem} whileTap={{ scale: 0.98 }} className="relative ml-1">
             {authLoading ? (
               <LoadingPlaceholder />
             ) : !isAuthenticated ? (
               <LoginButton />
             ) : (
               <>
-                {/* Account button */}
                 <button
                   type="button"
-                  onClick={() =>
-                    setProfileOpen((open) => !open)
-                  }
+                  onClick={() => setProfileOpen((open) => !open)}
                   aria-expanded={profileOpen}
+                  aria-haspopup="menu"
                   aria-label="Toggle account menu"
                   className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
                   <span className="flex size-8 items-center justify-center rounded-full bg-blue-50 text-blue-600">
                     <UserRound size={17} />
                   </span>
-
-                  <span className="max-w-28 truncate">
-                    {user?.name || "My Account"}
-                  </span>
-
-                  <ChevronDown
-                    size={15}
-                    className={`transition-transform ${
-                      profileOpen ? "rotate-180" : ""
-                    }`}
-                  />
+                  <span className="max-w-28 truncate">{user?.name || "My Account"}</span>
+                  <ChevronDown size={15} className={`transition-transform ${profileOpen ? "rotate-180" : ""}`} />
                 </button>
-
-                {/* Account dropdown */}
                 <AnimatePresence>
                   {profileOpen && (
                     <motion.div
-                      initial={{
-                        opacity: 0,
-                        y: -6,
-                        scale: 0.98,
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        scale: 1,
-                      }}
-                      exit={{
-                        opacity: 0,
-                        y: -6,
-                        scale: 0.98,
-                      }}
+                      role="menu"
+                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
                       transition={{ duration: 0.16 }}
-                      className="absolute right-0 top-full z-50 mt-2 w-60 rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
                     >
-                      {/* User information */}
-                      <div className="border-b border-slate-100 px-3 py-3">
-                        <p className="truncate text-sm font-semibold text-slate-900">
-                          {user?.name || "My Account"}
-                        </p>
-
-                        <p className="mt-1 truncate text-xs text-slate-500">
-                          {user?.email}
-                        </p>
-
-                        {isOwner && (
-                          <span className="mt-2 inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600">
-                            Car Owner
-                          </span>
-                        )}
-                      </div>
-
-                      {/* My bookings */}
-                      <Link
-                        to="/my-bookings"
-                        onClick={closeProfile}
-                        className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-600"
-                      >
-                        <CalendarCheck size={16} />
-                        My Bookings
-                      </Link>
-
-                      {/* Owner dashboard */}
-                      {isOwner && (
-                        <Link
-                          to="/owner"
-                          onClick={closeProfile}
-                          className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-600"
-                        >
-                          <CarFront size={16} />
-                          Owner Dashboard
-                        </Link>
-                      )}
-
-                      {/* Logout */}
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
-                      >
-                        <LogOut size={16} />
-                        Logout
-                      </button>
+                      <AccountActions />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -442,182 +382,62 @@ const LoginButton = ({ mobile = false }) => (
         <motion.button
           type="button"
           onClick={() => setMenuOpen((open) => !open)}
-          aria-label={
-            menuOpen
-              ? "Close navigation menu"
-              : "Open navigation menu"
-          }
+          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
           aria-expanded={menuOpen}
           aria-controls="mobile-navigation"
-          whileTap={{
-            scale: 0.86,
-            rotate: menuOpen ? -8 : 8,
-          }}
+          whileTap={{ scale: 0.9 }}
           className="inline-flex size-10 items-center justify-center rounded-xl text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 lg:hidden"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.span
               key={menuOpen ? "close" : "menu"}
-              initial={
-                shouldReduceMotion
-                  ? false
-                  : {
-                      opacity: 0,
-                      rotate: -45,
-                      scale: 0.7,
-                    }
-              }
-              animate={{
-                opacity: 1,
-                rotate: 0,
-                scale: 1,
-              }}
-              exit={
-                shouldReduceMotion
-                  ? undefined
-                  : {
-                      opacity: 0,
-                      rotate: 45,
-                      scale: 0.7,
-                    }
-              }
+              initial={shouldReduceMotion ? false : { opacity: 0, rotate: -45, scale: 0.7 }}
+              animate={{ opacity: 1, rotate: 0, scale: 1 }}
+              exit={shouldReduceMotion ? undefined : { opacity: 0, rotate: 45, scale: 0.7 }}
               transition={{ duration: 0.18 }}
               className="flex"
             >
-              {menuOpen ? (
-                <X size={25} strokeWidth={1.7} />
-              ) : (
-                <Menu size={25} strokeWidth={1.7} />
-              )}
+              {menuOpen ? <X size={25} strokeWidth={1.7} /> : <Menu size={25} strokeWidth={1.7} />}
             </motion.span>
           </AnimatePresence>
         </motion.button>
       </div>
 
-      {/* Mobile navigation dropdown */}
+      {/* Mobile navigation */}
       <AnimatePresence initial={false}>
         {menuOpen && (
           <motion.div
             id="mobile-navigation"
             key="mobile-navigation"
-            initial={
-              shouldReduceMotion
-                ? false
-                : { height: 0, opacity: 0 }
-            }
+            initial={shouldReduceMotion ? false : { height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
-            exit={
-              shouldReduceMotion
-                ? undefined
-                : { height: 0, opacity: 0 }
-            }
-            transition={{
-              duration: shouldReduceMotion ? 0 : 0.3,
-              ease: [0.16, 1, 0.3, 1],
-            }}
+            exit={shouldReduceMotion ? undefined : { height: 0, opacity: 0 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="overflow-hidden border-t border-slate-200 lg:hidden"
           >
             <motion.div
               variants={mobileContainer}
-              initial={
-                shouldReduceMotion ? false : "hidden"
-              }
+              initial={shouldReduceMotion ? false : "hidden"}
               animate="visible"
               className="space-y-1 px-4 pb-5 pt-3 sm:px-6"
             >
-              {/* Mobile links */}
               {navLinks.map(({ label, to }) => (
-                <AnimatedLink
-                  key={to}
-                  label={label}
-                  to={to}
-                  mobile
-                />
+                <AnimatedLink key={to} label={label} to={to} mobile />
               ))}
 
-              {/* Mobile owner link */}
-              {isOwner && (
-                <AnimatedLink
-                  label="Owner Dashboard"
-                  to="/owner"
-                  mobile
-                />
-              )}
+              {isOwner && <AnimatedLink label="Owner Dashboard" to="/owner" mobile />}
 
-              {/* Mobile search */}
-              <motion.div
-                variants={mobileItem}
-                className="py-2"
-              >
+              <motion.div variants={mobileItem} className="py-2">
                 <SearchForm mobile />
               </motion.div>
 
-              {/* Mobile authentication */}
-              <motion.div
-                variants={mobileItem}
-                className="pt-1"
-              >
+              <motion.div variants={mobileItem} className="pt-1">
                 {authLoading ? (
                   <LoadingPlaceholder mobile />
                 ) : !isAuthenticated ? (
                   <LoginButton mobile />
                 ) : (
-                  <div className="rounded-xl border border-slate-200 bg-white p-3">
-                    {/* Mobile user information */}
-                    <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                        <UserRound size={19} />
-                      </span>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-slate-900">
-                          {user?.name || "My Account"}
-                        </p>
-
-                        <p className="truncate text-xs text-slate-500">
-                          {user?.email}
-                        </p>
-
-                        {isOwner && (
-                          <span className="mt-1 inline-block text-xs font-medium text-blue-600">
-                            Car Owner
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Mobile bookings */}
-                    <Link
-                      to="/my-bookings"
-                      onClick={closeMenu}
-                      className="mt-2 flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-600"
-                    >
-                      <CalendarCheck size={16} />
-                      My Bookings
-                    </Link>
-
-                    {/* Mobile owner dashboard */}
-                    {isOwner && (
-                      <Link
-                        to="/owner"
-                        onClick={closeMenu}
-                        className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-600"
-                      >
-                        <CarFront size={16} />
-                        Owner Dashboard
-                      </Link>
-                    )}
-
-                    {/* Mobile logout */}
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
-                    >
-                      <LogOut size={16} />
-                      Logout
-                    </button>
-                  </div>
+                  <AccountActions mobile />
                 )}
               </motion.div>
             </motion.div>
