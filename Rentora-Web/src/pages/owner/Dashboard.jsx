@@ -1,4 +1,5 @@
-
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "motion/react";
 import {
   CarFront,
@@ -10,83 +11,10 @@ import {
   IndianRupee,
   TrendingUp,
   Clock3,
+  RefreshCw,
 } from "lucide-react";
 
-const stats = [
-  {
-    title: "Total Cars",
-    value: 8,
-    icon: CarFront,
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    change: "+2 this month",
-  },
-  {
-    title: "Total Bookings",
-    value: 8,
-    icon: ClipboardList,
-    color: "text-indigo-600",
-    bg: "bg-indigo-50",
-    change: "+12% this month",
-  },
-  {
-    title: "Pending Bookings",
-    value: 2,
-    icon: TriangleAlert,
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-    change: "Needs attention",
-  },
-  {
-    title: "Completed Bookings",
-    value: 6,
-    icon: CheckCircle2,
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
-    change: "All time",
-  },
-];
-
-const recentBookings = [
-  {
-    id: "BK-1001",
-    car: "BMW 3 Series",
-    date: "12 Oct 2026",
-    price: 475,
-    status: "Confirmed",
-    icon: CarFront,
-  },
-  {
-    id: "BK-1002",
-    car: "Ford Explorer",
-    date: "11 Oct 2026",
-    price: 425,
-    status: "Completed",
-    icon: CarFront,
-  },
-  {
-    id: "BK-1003",
-    car: "Toyota Corolla",
-    date: "10 Oct 2026",
-    price: 225,
-    status: "Pending",
-    icon: CarFront,
-  },
-  {
-    id: "BK-1004",
-    car: "Tesla Model 3",
-    date: "09 Oct 2026",
-    price: 360,
-    status: "Confirmed",
-    icon: CarFront,
-  },
-];
-
-const statusStyles = {
-  Confirmed: "bg-emerald-50 text-emerald-700",
-  Completed: "bg-slate-100 text-slate-600",
-  Pending: "bg-amber-50 text-amber-700",
-};
+import { useAppContext } from "../../context/Appcontext";
 
 const ease = [0.22, 1, 0.36, 1];
 
@@ -107,7 +35,110 @@ const itemVariants = {
 };
 
 const Dashboard = () => {
-  const monthlyRevenue = 1060;
+  const { fetchOwnerCars } = useAppContext();
+
+  const [cars, setCars] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // Fetch actual owner cars from the existing Car API.
+  const loadDashboard = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await fetchOwnerCars();
+
+      // Support either an array or an object containing a cars array.
+      const ownerCars = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.cars)
+          ? response.cars
+          : [];
+
+      setCars(ownerCars);
+    } catch (err) {
+      console.error("Dashboard loading error:", err);
+
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to load dashboard data."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+
+  // Actual car count from the backend.
+  const totalCars = cars.length;
+
+  /*
+   * TODO(booking-api):
+   * Integrate the Booking API later.
+   *
+   * Fetch total bookings, pending bookings, completed bookings,
+   * recent bookings, and monthly revenue from the backend.
+   *
+   * Do not display fabricated statistics.
+   */
+  const totalBookings = null;
+  const pendingBookings = null;
+  const completedBookings = null;
+  const monthlyRevenue = null;
+  const recentBookings = [];
+
+  const currentMonth = new Date().toLocaleDateString("en-IN", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const stats = [
+    {
+      title: "Total Cars",
+      value: totalCars,
+      icon: CarFront,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+      description: "Your vehicles",
+    },
+    {
+      title: "Total Bookings",
+      value: totalBookings,
+      icon: ClipboardList,
+      color: "text-indigo-600",
+      bg: "bg-indigo-50",
+      description: "Booking API pending",
+    },
+    {
+      title: "Pending Bookings",
+      value: pendingBookings,
+      icon: TriangleAlert,
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+      description: "Booking API pending",
+    },
+    {
+      title: "Completed Bookings",
+      value: completedBookings,
+      icon: CheckCircle2,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+      description: "Booking API pending",
+    },
+  ];
+
+  const formatNumber = (value) => {
+    if (value === null || value === undefined) {
+      return "Pending";
+    }
+
+    return Number(value).toLocaleString("en-IN");
+  };
 
   return (
     <div className="mx-auto max-w-7xl space-y-7">
@@ -124,20 +155,35 @@ const Dashboard = () => {
           </p>
 
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Admin Dashboard
+            Owner Dashboard
           </h1>
 
           <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
-            Monitor overall platform performance, including total cars,
-            bookings, revenue, and recent activities.
+            Monitor your vehicles, bookings, and rental revenue.
           </p>
         </div>
 
         <div className="flex items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 sm:self-auto">
           <CalendarDays size={15} className="text-blue-600" />
-          October 2026
+          {currentMonth}
         </div>
       </motion.header>
+
+      {/* Error message */}
+      {error && (
+        <div className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 sm:flex-row sm:items-center sm:justify-between">
+          <p>{error}</p>
+
+          <button
+            type="button"
+            onClick={loadDashboard}
+            className="inline-flex w-fit items-center gap-2 rounded-lg border border-rose-200 bg-white px-3 py-2 font-semibold transition hover:bg-rose-100"
+          >
+            <RefreshCw size={14} />
+            Try again
+          </button>
+        </div>
+      )}
 
       {/* Statistics */}
       <motion.section
@@ -173,12 +219,18 @@ const Dashboard = () => {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, duration: 0.4 }}
-                className="mt-4 text-3xl font-bold tracking-tight text-slate-900"
+                className="mt-4 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl"
               >
-                {stat.value}
+                {loading && stat.title === "Total Cars"
+                  ? "..."
+                  : stat.title === "Total Cars" && error
+                    ? "Unavailable"
+                    : formatNumber(stat.value)}
               </motion.p>
 
-              <p className="mt-2 text-xs text-slate-400">{stat.change}</p>
+              <p className="mt-2 text-xs text-slate-400">
+                {stat.description}
+              </p>
             </motion.article>
           );
         })}
@@ -198,6 +250,7 @@ const Dashboard = () => {
               <h2 className="font-semibold text-slate-900">
                 Recent Bookings
               </h2>
+
               <p className="mt-1 text-xs text-slate-500">
                 Latest customer bookings
               </p>
@@ -208,52 +261,72 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="divide-y divide-slate-100 px-5 sm:px-6"
-          >
-            {recentBookings.map((booking) => {
-              const Icon = booking.icon;
+          <div className="divide-y divide-slate-100 px-5 sm:px-6">
+            {recentBookings.length === 0 ? (
+              <div className="py-10 text-center">
+                <ClipboardList
+                  className="mx-auto text-slate-300"
+                  size={28}
+                />
 
-              return (
-                <motion.div
-                  key={booking.id}
-                  variants={itemVariants}
+                <p className="mt-3 text-sm font-medium text-slate-700">
+                  Booking API integration pending
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Recent bookings will appear here after the booking API
+                  is connected.
+                </p>
+              </div>
+            ) : (
+              recentBookings.map((booking) => (
+                <div
+                  key={booking._id}
                   className="flex items-center gap-3 py-4"
                 >
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                    <Icon size={18} />
+                    <CarFront size={18} />
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-slate-800">
-                      {booking.car}
+                      {booking.car?.brand} {booking.car?.model}
                     </p>
+
                     <p className="mt-1 text-xs text-slate-400">
-                      {booking.date}
+                      {booking.createdAt
+                        ? new Date(booking.createdAt).toLocaleDateString(
+                            "en-IN"
+                          )
+                        : "Date unavailable"}
                     </p>
                   </div>
 
                   <div className="shrink-0 text-right">
                     <p className="text-sm font-semibold text-slate-700">
-                      ${booking.price}
+                      ₹
+                      {Number(
+                        booking.totalPrice ?? booking.price ?? 0
+                      ).toLocaleString("en-IN")}
                     </p>
 
-                    <span
-                      className={`mt-1.5 inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${statusStyles[booking.status]}`}
-                    >
-                      {booking.status}
+                    <span className="mt-1.5 inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">
+                      {booking.status || "Pending"}
                     </span>
                   </div>
-                </motion.div>
-              );
-            })}
-          </motion.div>
+                </div>
+              ))
+            )}
+          </div>
 
           <div className="border-t border-slate-100 px-5 py-4 sm:px-6">
-            <LinkToBookings />
+            <Link
+              to="/owner/manage-bookings"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 transition hover:text-blue-800"
+            >
+              View all bookings
+              <ArrowUpRight size={16} />
+            </Link>
           </div>
         </motion.div>
 
@@ -270,6 +343,7 @@ const Dashboard = () => {
               <h2 className="font-semibold text-slate-900">
                 Monthly Revenue
               </h2>
+
               <p className="mt-1 text-xs text-slate-500">
                 Revenue for the current month
               </p>
@@ -283,30 +357,34 @@ const Dashboard = () => {
           <div className="mt-7 flex items-end gap-2">
             <IndianRupee size={27} className="mb-1 text-blue-600" />
 
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.35, duration: 0.6 }}
-              className="text-4xl font-bold tracking-tight text-blue-600"
-            >
-              {monthlyRevenue.toLocaleString("en-IN")}
-            </motion.p>
+            <p className="text-3xl font-bold tracking-tight text-blue-600 sm:text-4xl">
+              {formatNumber(monthlyRevenue)}
+            </p>
           </div>
 
           <div className="mt-6 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-3 text-xs text-emerald-700">
             <TrendingUp size={16} />
-            <span>Revenue summary for October</span>
+
+            <span>
+              Revenue calculation will be added with the Booking API.
+            </span>
           </div>
 
           <div className="mt-6 border-t border-slate-100 pt-5">
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center justify-between gap-3 text-sm">
               <span className="text-slate-500">Completed bookings</span>
-              <span className="font-semibold text-slate-800">6</span>
+
+              <span className="font-semibold text-slate-800">
+                {formatNumber(completedBookings)}
+              </span>
             </div>
 
-            <div className="mt-4 flex items-center justify-between text-sm">
+            <div className="mt-4 flex items-center justify-between gap-3 text-sm">
               <span className="text-slate-500">Pending requests</span>
-              <span className="font-semibold text-amber-600">2</span>
+
+              <span className="font-semibold text-amber-600">
+                {formatNumber(pendingBookings)}
+              </span>
             </div>
           </div>
         </motion.div>
@@ -320,8 +398,8 @@ const Dashboard = () => {
         className="grid grid-cols-1 gap-4 sm:grid-cols-2"
       >
         <motion.div variants={itemVariants}>
-          <a
-            href="/owner/add-car"
+          <Link
+            to="/owner/add-car"
             className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-blue-200 hover:shadow-md"
           >
             <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition group-hover:bg-blue-600 group-hover:text-white">
@@ -329,7 +407,10 @@ const Dashboard = () => {
             </div>
 
             <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-slate-900">Add a vehicle</h3>
+              <h3 className="font-semibold text-slate-900">
+                Add a vehicle
+              </h3>
+
               <p className="mt-1 text-sm text-slate-500">
                 Add a car to your rental fleet.
               </p>
@@ -339,12 +420,12 @@ const Dashboard = () => {
               size={19}
               className="text-slate-400 transition group-hover:text-blue-600"
             />
-          </a>
+          </Link>
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <a
-            href="/owner/manage-bookings"
+          <Link
+            to="/owner/manage-bookings"
             className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-blue-200 hover:shadow-md"
           >
             <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 transition group-hover:bg-amber-500 group-hover:text-white">
@@ -355,8 +436,9 @@ const Dashboard = () => {
               <h3 className="font-semibold text-slate-900">
                 Review bookings
               </h3>
+
               <p className="mt-1 text-sm text-slate-500">
-                Check reservations and pending requests.
+                Review reservations and pending requests.
               </p>
             </div>
 
@@ -364,23 +446,11 @@ const Dashboard = () => {
               size={19}
               className="text-slate-400 transition group-hover:text-blue-600"
             />
-          </a>
+          </Link>
         </motion.div>
       </motion.section>
     </div>
   );
 };
-
-function LinkToBookings() {
-  return (
-    <a
-      href="/owner/manage-bookings"
-      className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 transition hover:text-blue-800"
-    >
-      View all bookings
-      <ArrowUpRight size={16} />
-    </a>
-  );
-}
 
 export default Dashboard;

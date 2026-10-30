@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { motion, useReducedMotion } from "motion/react";
 import {
@@ -9,140 +8,10 @@ import {
   CarFront,
   MapPin,
   CircleCheck,
-  CalendarDays,
   ShieldCheck,
   ArrowUpRight,
 } from "lucide-react";
-
-import carHero from "../assets/car-hero.png";
-import carHero1 from "../assets/car-hero-4.png";
-import carHero2 from "../assets/car-hero-2.png";
-import carHero3 from "../assets/car-hero-3.png";
-
-const cars = [
-  {
-    id: "1",
-    name: "Toyota Corolla",
-    type: "Sedan",
-    year: 2021,
-    price: 130,
-    seats: 4,
-    fuel: "Diesel",
-    transmission: "Automatic",
-    location: "Delhi",
-    image: carHero,
-    description:
-      "The Toyota Corolla is a comfortable and reliable sedan, designed for everyday driving and longer journeys. Enjoy a smooth ride with practical features and a refined interior.",
-    features: [
-      "360 Camera",
-      "Bluetooth",
-      "GPS",
-      "Heated Seats",
-      "Rear View Mirror",
-    ],
-  },
-  {
-    id: "2",
-    name: "BMW X5",
-    type: "SUV",
-    year: 2022,
-    price: 300,
-    seats: 5,
-    fuel: "Petrol",
-    transmission: "Automatic",
-    location: "Noida",
-    image: carHero1,
-    description:
-      "The BMW X5 is a premium SUV offering a spacious cabin, refined comfort, and a confident driving experience.",
-    features: [
-      "360 Camera",
-      "Bluetooth",
-      "GPS",
-      "Heated Seats",
-      "Parking Sensors",
-    ],
-  },
-  {
-    id: "3",
-    name: "Jeep Wrangler",
-    type: "SUV",
-    year: 2023,
-    price: 200,
-    seats: 4,
-    fuel: "Petrol",
-    transmission: "Automatic",
-    location: "Mumbai",
-    image: carHero2,
-    description:
-      "The Jeep Wrangler is a rugged SUV made for adventurous journeys, offering a distinctive design and a comfortable cabin.",
-    features: [
-      "Bluetooth",
-      "GPS",
-      "Rear View Camera",
-      "Parking Sensors",
-    ],
-  },
-  {
-    id: "4",
-    name: "Toyota Corolla",
-    type: "Sedan",
-    year: 2021,
-    price: 130,
-    seats: 4,
-    fuel: "Diesel",
-    transmission: "Manual",
-    location: "Gurugram",
-    image: carHero,
-    description:
-      "A practical sedan with comfortable seating, dependable performance, and useful everyday features.",
-    features: [
-      "Bluetooth",
-      "GPS",
-      "Rear View Mirror",
-      "Parking Sensors",
-    ],
-  },
-  {
-    id: "5",
-    name: "Ford Neo 6",
-    type: "Sedan",
-    year: 2022,
-    price: 209,
-    seats: 2,
-    fuel: "Diesel",
-    transmission: "Automatic",
-    location: "Bengaluru",
-    image: carHero2,
-    description:
-      "A stylish sedan concept for comfortable city travel and longer drives, with practical features for everyday journeys.",
-    features: [
-      "Bluetooth",
-      "GPS",
-      "Parking Sensors",
-      "Rear View Camera",
-    ],
-  },
-  {
-    id: "6",
-    name: "BMW M4",
-    type: "Coupe",
-    year: 2021,
-    price: 220,
-    seats: 2,
-    fuel: "Petrol",
-    transmission: "Automatic",
-    location: "Hyderabad",
-    image: carHero3,
-    description:
-      "The BMW M4 features sporty styling, a driver-focused cabin, and a premium coupe design for an engaging drive.",
-    features: [
-      "Bluetooth",
-      "GPS",
-      "Sport Seats",
-      "Parking Sensors",
-    ],
-  },
-];
+import { useAppContext } from "../context/Appcontext";
 
 const smoothEase = [0.22, 1, 0.36, 1];
 
@@ -150,10 +19,7 @@ const pageVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: {
-      duration: 0.5,
-      staggerChildren: 0.12,
-    },
+    transition: { duration: 0.5, staggerChildren: 0.12 },
   },
 };
 
@@ -169,10 +35,7 @@ const revealUp = {
 const specContainer = {
   hidden: {},
   visible: {
-    transition: {
-      staggerChildren: 0.09,
-      delayChildren: 0.15,
-    },
+    transition: { staggerChildren: 0.09, delayChildren: 0.15 },
   },
 };
 
@@ -186,43 +49,118 @@ const specItem = {
   },
 };
 
+const getRentalDays = (pickupDate, returnDate) => {
+  if (!pickupDate || !returnDate || returnDate < pickupDate) {
+    return 1;
+  }
+
+  const start = new Date(`${pickupDate}T00:00:00`);
+  const end = new Date(`${returnDate}T00:00:00`);
+
+  return Math.max(
+    1,
+    Math.round((end - start) / (1000 * 60 * 60 * 24))
+  );
+};
+
 const CarDetail = () => {
   const { id } = useParams();
   const shouldReduceMotion = useReducedMotion();
 
-  const car = cars.find((item) => item.id === id);
+  const {
+    cars = [],
+    loading: carsLoading,
+    currency = "₹",
+  } = useAppContext();
 
   const [pickupDate, setPickupDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
 
+  const car = useMemo(() => {
+    const foundCar = (Array.isArray(cars) ? cars : []).find(
+      (item) => String(item._id || item.id) === String(id)
+    );
+
+    if (!foundCar) return null;
+
+    return {
+      id: foundCar._id || foundCar.id,
+      name:
+        [foundCar.brand, foundCar.model].filter(Boolean).join(" ") ||
+        foundCar.name ||
+        "Vehicle",
+      type: foundCar.category || "Vehicle",
+      year: foundCar.year || "Not specified",
+      price: Number(foundCar.pricePerDay ?? foundCar.price) || 0,
+      seats: Number(foundCar.seating_capacity ?? foundCar.seats) || 0,
+      fuel: foundCar.fuel_type || foundCar.fuel || "Not specified",
+      transmission: foundCar.transmission || "Not specified",
+      location: foundCar.location || "Location unavailable",
+      image: foundCar.image || "",
+      description:
+        foundCar.description ||
+        "Vehicle details and additional information will be provided by the owner.",
+      features: Array.isArray(foundCar.features)
+        ? foundCar.features
+        : [],
+      isAvailable: foundCar.isAvailable !== false,
+      isListed: foundCar.isListed !== false,
+    };
+  }, [cars, id]);
+
   const today = new Date().toLocaleDateString("en-CA");
+  const motionEnabled = !shouldReduceMotion;
+  const rentalDays = getRentalDays(pickupDate, returnDate);
+  const estimatedTotal = rentalDays * (car?.price || 0);
 
   const handleBooking = (event) => {
     event.preventDefault();
 
+    if (!car) return;
+
     if (!pickupDate || !returnDate) {
-      alert("Please select both dates.");
+      window.alert("Please select both pickup and return dates.");
+      return;
+    }
+
+    if (pickupDate < today) {
+      window.alert("Pickup date cannot be in the past.");
       return;
     }
 
     if (returnDate < pickupDate) {
-      alert("Return date cannot be before pickup date.");
+      window.alert("Return date cannot be before pickup date.");
       return;
     }
 
-    const start = new Date(`${pickupDate}T00:00:00`);
-    const end = new Date(`${returnDate}T00:00:00`);
+    if (!car.isAvailable || !car.isListed) {
+      window.alert("This vehicle is currently unavailable.");
+      return;
+    }
 
-    const days = Math.max(
-      1,
-      Math.round((end - start) / (1000 * 60 * 60 * 24))
-    );
-
-    alert(
-      `Demo booking\n\nCar: ${car.name}\nPickup: ${pickupDate}\nReturn: ${returnDate}\nDuration: ${days} day(s)\nEstimated total: $${days * car.price}\n\nConnect your backend booking API here later.`
+    // TODO: Integrate the actual booking API.
+    // The backend must validate dates, availability, and final price.
+    window.alert(
+      "Booking API integration is pending.\n\n" +
+        `Car: ${car.name}\n` +
+        `Pickup: ${pickupDate}\n` +
+        `Return: ${returnDate}\n` +
+        `Duration: ${rentalDays} day(s)\n` +
+        `Estimated total: ${currency}${estimatedTotal.toLocaleString("en-IN")}`
     );
   };
 
+  // Loading state from Appcontext.jsx
+  if (carsLoading) {
+    return (
+      <main className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-4 text-slate-500">
+        <div className="size-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+        <p className="text-sm">Loading vehicle details...</p>
+      </main>
+    );
+  }
+
+  // Car not found
   if (!car) {
     return (
       <motion.main
@@ -230,12 +168,14 @@ const CarDetail = () => {
         animate={{ opacity: 1, y: 0 }}
         className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center"
       >
-        <h1 className="text-2xl font-bold text-slate-900">
+        <CarFront size={42} className="text-slate-300" />
+
+        <h1 className="mt-4 text-2xl font-bold text-slate-900">
           Car not found
         </h1>
 
         <p className="mt-2 text-slate-500">
-          This vehicle doesn't exist in the current demo data.
+          This vehicle may have been removed or is no longer listed.
         </p>
 
         <Link
@@ -249,18 +189,15 @@ const CarDetail = () => {
   }
 
   const specs = [
-    { icon: Users, label: `${car.seats} Seats` },
+    { icon: Users, label: `${car.seats || "N/A"} Seats` },
     { icon: Fuel, label: car.fuel },
     { icon: CarFront, label: car.transmission },
     { icon: MapPin, label: car.location },
   ];
 
-  const motionEnabled = !shouldReduceMotion;
-
   return (
     <main className="min-h-screen overflow-hidden bg-white px-4 py-7 sm:px-6 sm:py-10 lg:px-8 lg:py-12">
       <div className="mx-auto max-w-7xl">
-
         {/* Back navigation */}
         <motion.div
           initial={motionEnabled ? { opacity: 0, x: -16 } : false}
@@ -281,7 +218,6 @@ const CarDetail = () => {
         </motion.div>
 
         <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10">
-
           {/* LEFT: Vehicle information */}
           <motion.section
             key={car.id}
@@ -290,59 +226,45 @@ const CarDetail = () => {
             animate="visible"
             className="min-w-0"
           >
-            {/* Cinematic image reveal */}
+            {/* Vehicle image */}
             <motion.div
               variants={revealUp}
               className="group relative isolate overflow-hidden rounded-2xl bg-slate-100 shadow-[0_16px_45px_rgba(15,23,42,0.12)]"
             >
-              <motion.div
-                initial={
-                  motionEnabled
-                    ? { clipPath: "inset(0 100% 0 0)" }
-                    : false
-                }
-                animate={{ clipPath: "inset(0 0% 0 0)" }}
-                transition={{
-                  duration: 1.05,
-                  ease: smoothEase,
-                }}
-              >
+              {car.image ? (
                 <motion.img
                   src={car.image}
                   alt={car.name}
                   fetchPriority="high"
                   className="h-64 w-full object-cover sm:h-80 lg:h-[400px] xl:h-[430px]"
-                  initial={motionEnabled ? { scale: 1.12 } : false}
+                  initial={motionEnabled ? { scale: 1.08 } : false}
                   animate={{ scale: 1 }}
-                  transition={{
-                    duration: 1.4,
-                    ease: smoothEase,
-                  }}
-                  whileHover={
-                    motionEnabled ? { scale: 1.035 } : undefined
-                  }
+                  transition={{ duration: 1.1, ease: smoothEase }}
+                  whileHover={motionEnabled ? { scale: 1.035 } : undefined}
                 />
-              </motion.div>
+              ) : (
+                <div className="flex h-64 items-center justify-center text-slate-400 sm:h-80 lg:h-[400px]">
+                  <CarFront size={56} />
+                </div>
+              )}
 
-              {/* Image gradient */}
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/30 via-transparent to-transparent opacity-60" />
 
-              {/* Image label */}
-              <motion.div
-                initial={motionEnabled ? { opacity: 0, y: 12 } : false}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  delay: 0.65,
-                  duration: 0.5,
-                  ease: smoothEase,
-                }}
-                className="absolute bottom-4 left-4"
-              >
+              <div className="absolute bottom-4 left-4">
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3.5 py-2 text-xs font-medium text-white shadow-lg backdrop-blur-xl">
-                  <span className="size-2 rounded-full bg-emerald-400" />
-                  Premium vehicle
+                  <span
+                    className={`size-2 rounded-full ${
+                      car.isAvailable && car.isListed
+                        ? "bg-emerald-400"
+                        : "bg-rose-400"
+                    }`}
+                  />
+
+                  {car.isAvailable && car.isListed
+                    ? "Available for rent"
+                    : "Currently unavailable"}
                 </span>
-              </motion.div>
+              </div>
             </motion.div>
 
             {/* Vehicle title */}
@@ -364,8 +286,10 @@ const CarDetail = () => {
 
                 <div className="rounded-xl border border-slate-200 px-4 py-3 text-right">
                   <p className="text-xs text-slate-400">Daily rate</p>
+
                   <p className="mt-1 text-xl font-bold text-slate-900">
-                    ${car.price}
+                    {currency}
+                    {car.price.toLocaleString("en-IN")}
                   </p>
                 </div>
               </div>
@@ -376,7 +300,7 @@ const CarDetail = () => {
               className="my-6 border-t border-slate-200"
             />
 
-            {/* Animated specifications */}
+            {/* Vehicle specifications */}
             <motion.div
               variants={specContainer}
               initial="hidden"
@@ -413,24 +337,18 @@ const CarDetail = () => {
             </motion.div>
 
             {/* Description */}
-            <motion.section
-              variants={revealUp}
-              className="mt-9"
-            >
+            <motion.section variants={revealUp} className="mt-9">
               <h2 className="text-xl font-bold tracking-tight text-slate-950">
                 About this vehicle
               </h2>
 
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500 sm:text-base">
+              <p className="mt-3 max-w-3xl whitespace-pre-line text-sm leading-7 text-slate-500 sm:text-base">
                 {car.description}
               </p>
             </motion.section>
 
             {/* Features */}
-            <motion.section
-              variants={revealUp}
-              className="mt-9 pb-8"
-            >
+            <motion.section variants={revealUp} className="mt-9 pb-8">
               <h2 className="text-xl font-bold tracking-tight text-slate-950">
                 Features & amenities
               </h2>
@@ -439,36 +357,41 @@ const CarDetail = () => {
                 Comfort and convenience for every journey.
               </p>
 
-              <motion.ul
-                variants={specContainer}
-                initial="hidden"
-                animate="visible"
-                className="mt-5 grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2"
-              >
-                {car.features.map((feature) => (
-                  <motion.li
-                    key={feature}
-                    variants={specItem}
-                    className="flex items-center gap-3 text-sm text-slate-600 sm:text-base"
-                  >
-                    <CircleCheck
-                      size={19}
-                      strokeWidth={1.8}
-                      className="shrink-0 text-blue-600"
-                    />
-                    {feature}
-                  </motion.li>
-                ))}
-              </motion.ul>
+              {car.features.length > 0 ? (
+                <motion.ul
+                  variants={specContainer}
+                  initial="hidden"
+                  animate="visible"
+                  className="mt-5 grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2"
+                >
+                  {car.features.map((feature) => (
+                    <motion.li
+                      key={feature}
+                      variants={specItem}
+                      className="flex items-center gap-3 text-sm text-slate-600 sm:text-base"
+                    >
+                      <CircleCheck
+                        size={19}
+                        strokeWidth={1.8}
+                        className="shrink-0 text-blue-600"
+                      />
+
+                      {feature}
+                    </motion.li>
+                  ))}
+                </motion.ul>
+              ) : (
+                <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
+                  Additional features have not been provided for this vehicle.
+                </p>
+              )}
             </motion.section>
           </motion.section>
 
           {/* RIGHT: Booking card */}
           <motion.aside
             initial={
-              motionEnabled
-                ? { opacity: 0, x: 35, scale: 0.98 }
-                : false
+              motionEnabled ? { opacity: 0, x: 35, scale: 0.98 } : false
             }
             animate={{ opacity: 1, x: 0, scale: 1 }}
             transition={{
@@ -478,7 +401,6 @@ const CarDetail = () => {
             }}
             className="w-full rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_12px_40px_rgba(15,23,42,0.09)] sm:p-7 lg:sticky lg:top-28"
           >
-            {/* Booking header */}
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
@@ -487,8 +409,10 @@ const CarDetail = () => {
 
                 <div className="mt-1 flex items-baseline gap-1.5">
                   <span className="text-3xl font-bold tracking-tight text-slate-900">
-                    ${car.price}
+                    {currency}
+                    {car.price.toLocaleString("en-IN")}
                   </span>
+
                   <span className="text-sm text-slate-400">/ day</span>
                 </div>
               </div>
@@ -517,6 +441,7 @@ const CarDetail = () => {
                   min={today}
                   onChange={(event) => {
                     const value = event.target.value;
+
                     setPickupDate(value);
 
                     if (returnDate && value > returnDate) {
@@ -548,11 +473,8 @@ const CarDetail = () => {
                 />
               </div>
 
-              {/* Live estimated total */}
-              <motion.div
-                layout
-                className="rounded-xl bg-slate-50 p-4"
-              >
+              {/* Estimated total */}
+              <motion.div layout className="rounded-xl bg-slate-50 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm text-slate-500">
                     Estimated total
@@ -560,40 +482,18 @@ const CarDetail = () => {
 
                   <motion.span
                     key={`${pickupDate}-${returnDate}-${car.price}`}
-                    initial={
-                      motionEnabled
-                        ? { opacity: 0, y: 5 }
-                        : false
-                    }
+                    initial={motionEnabled ? { opacity: 0, y: 5 } : false}
                     animate={{ opacity: 1, y: 0 }}
                     className="text-lg font-bold text-slate-900"
                   >
-                    $
-                    {pickupDate &&
-                    returnDate &&
-                    returnDate >= pickupDate
-                      ? Math.max(
-                          1,
-                          Math.round(
-                            (new Date(`${returnDate}T00:00:00`) -
-                              new Date(`${pickupDate}T00:00:00`)) /
-                              (1000 * 60 * 60 * 24)
-                          )
-                        ) * car.price
-                      : car.price}
+                    {currency}
+                    {estimatedTotal.toLocaleString("en-IN")}
                   </motion.span>
                 </div>
 
                 <p className="mt-1 text-xs text-slate-400">
                   {pickupDate && returnDate && returnDate >= pickupDate
-                    ? `${Math.max(
-                        1,
-                        Math.round(
-                          (new Date(`${returnDate}T00:00:00`) -
-                            new Date(`${pickupDate}T00:00:00`)) /
-                            (1000 * 60 * 60 * 24)
-                        )
-                      )} rental day(s)`
+                    ? `${rentalDays} rental day(s)`
                     : "Select dates to calculate your rental"}
                 </p>
               </motion.div>
@@ -601,18 +501,25 @@ const CarDetail = () => {
               {/* Booking button */}
               <motion.button
                 type="submit"
+                disabled={!car.isAvailable || !car.isListed}
                 whileHover={
-                  motionEnabled
+                  motionEnabled && car.isAvailable && car.isListed
                     ? {
                         scale: 1.02,
                         boxShadow: "0 12px 28px rgba(37,99,235,0.25)",
                       }
                     : undefined
                 }
-                whileTap={motionEnabled ? { scale: 0.98 } : undefined}
-                className="group flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-600/15 transition-colors duration-300 hover:bg-blue-700"
+                whileTap={
+                  motionEnabled && car.isAvailable && car.isListed
+                    ? { scale: 0.98 }
+                    : undefined
+                }
+                className="group flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-600/15 transition-colors duration-300 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
               >
-                Reserve this car
+                {car.isAvailable && car.isListed
+                  ? "Reserve this car"
+                  : "Vehicle unavailable"}
 
                 <ArrowUpRight
                   size={18}
@@ -621,13 +528,13 @@ const CarDetail = () => {
               </motion.button>
             </form>
 
-            {/* Trust message */}
             <div className="mt-5 flex items-center justify-center gap-2 text-center text-xs leading-5 text-slate-500 sm:text-sm">
               <ShieldCheck
                 size={17}
                 className="shrink-0 text-emerald-600"
               />
-              No credit card required to reserve
+
+              Booking confirmation will be available after API integration.
             </div>
           </motion.aside>
         </div>

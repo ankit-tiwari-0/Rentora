@@ -1,5 +1,4 @@
-
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Link } from "react-router-dom";
 import {
@@ -12,106 +11,19 @@ import {
   ArrowUpRight,
   CarFront,
   X,
+  RefreshCw,
 } from "lucide-react";
-
-import carHero from "../assets/car-hero.png";
-import carHero1 from "../assets/car-hero-4.png";
-import carHero2 from "../assets/car-hero-2.png";
-import carHero3 from "../assets/car-hero-3.png";
-
-// Replace image paths if your actual filenames are different.
-const cars = [
-  {
-    id: "1",
-    name: "Toyota Corolla",
-    category: "Sedan",
-    year: 2021,
-    price: 130,
-    seats: 4,
-    fuel: "Diesel",
-    transmission: "Automatic",
-    location: "Noida",
-    image: carHero,
-  },
-  {
-    id: "2",
-    name: "BMW X5",
-    category: "SUV",
-    year: 2024,
-    price: 300,
-    seats: 5,
-    fuel: "Petrol",
-    transmission: "Automatic",
-    location: "Delhi",
-    image: carHero1,
-  },
-  {
-    id: "3",
-    name: "Jeep Wrangler",
-    category: "SUV",
-    year: 2023,
-    price: 200,
-    seats: 5,
-    fuel: "Petrol",
-    transmission: "Automatic",
-    location: "Gurugram",
-    image: carHero2,
-  },
-  {
-    id: "4",
-    name: "Mercedes-Benz C-Class",
-    category: "Luxury",
-    year: 2024,
-    price: 250,
-    seats: 5,
-    fuel: "Petrol",
-    transmission: "Automatic",
-    location: "Delhi",
-    image: carHero3,
-  },
-  {
-    id: "5",
-    name: "Range Rover Sport",
-    category: "Luxury",
-    year: 2023,
-    price: 350,
-    seats: 5,
-    fuel: "Diesel",
-    transmission: "Automatic",
-    location: "Noida",
-    image: carHero1,
-  },
-  {
-    id: "6",
-    name: "Porsche 911",
-    category: "Sports",
-    year: 2024,
-    price: 450,
-    seats: 2,
-    fuel: "Petrol",
-    transmission: "Automatic",
-    location: "Gurugram",
-    image: carHero2,
-  },
-];
-
-const categories = ["All", "Sedan", "SUV", "Luxury", "Sports"];
+import { useAppContext } from "../context/Appcontext";
 
 const containerVariants = {
   hidden: {},
   visible: {
-    transition: {
-      staggerChildren: 0.09,
-    },
+    transition: { staggerChildren: 0.09 },
   },
 };
 
 const cardVariants = {
-  hidden: {
-    opacity: 0,
-    y: 35,
-    scale: 0.97,
-  },
+  hidden: { opacity: 0, y: 35, scale: 0.97 },
   visible: {
     opacity: 1,
     y: 0,
@@ -130,24 +42,65 @@ const cardVariants = {
 };
 
 const Cars = () => {
+const { cars = [], loading } = useAppContext();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState("featured");
-  const [maxPrice, setMaxPrice] = useState(500);
+  const [maxPrice, setMaxPrice] = useState(50000);
+  const [error, setError] = useState("");
 
+
+  // Map MongoDB fields to the fields used by the UI.
+  const formattedCars = useMemo(
+    () =>
+      (Array.isArray(cars) ? cars : []).map((car) => ({
+        id: car._id || car.id,
+        name:
+          [car.brand, car.model].filter(Boolean).join(" ") ||
+          car.name ||
+          "Vehicle",
+        category: car.category || "Other",
+        year: Number(car.year) || 0,
+        price: Number(car.pricePerDay ?? car.price) || 0,
+        seats: Number(car.seating_capacity ?? car.seats) || 0,
+        fuel: car.fuel_type || car.fuel || "Not specified",
+        transmission: car.transmission || "Not specified",
+        location: car.location || "Location unavailable",
+        image: car.image || "",
+      })),
+    [cars]
+  );
+
+  // Generate categories from actual vehicle data.
+  const categories = useMemo(
+    () => [
+      "All",
+      ...new Set(
+        formattedCars.map((car) => car.category).filter(Boolean)
+      ),
+    ],
+    [formattedCars]
+  );
+
+  // Search, filter, and sort actual vehicles.
   const filteredCars = useMemo(() => {
-    let result = cars.filter((car) => {
-      const searchText = search.toLowerCase().trim();
+    const searchText = search.toLowerCase().trim();
 
-      const matchesSearch =
-        car.name.toLowerCase().includes(searchText) ||
-        car.category.toLowerCase().includes(searchText) ||
-        car.location.toLowerCase().includes(searchText) ||
-        car.fuel.toLowerCase().includes(searchText);
+    const result = formattedCars.filter((car) => {
+      const matchesSearch = [
+        car.name,
+        car.category,
+        car.location,
+        car.fuel,
+        car.transmission,
+      ].some((value) =>
+        String(value || "").toLowerCase().includes(searchText)
+      );
 
       const matchesCategory =
-        activeCategory === "All" || car.category === activeCategory;
+        activeCategory === "All" ||
+        car.category === activeCategory;
 
       const matchesPrice = car.price <= maxPrice;
 
@@ -163,7 +116,30 @@ const Cars = () => {
     }
 
     return result;
-  }, [search, activeCategory, maxPrice, sortBy]);
+  }, [formattedCars, search, activeCategory, maxPrice, sortBy]);
+
+  const resetFilters = () => {
+    setSortBy("featured");
+    setMaxPrice(500);
+    setActiveCategory("All");
+    setSearch("");
+  };
+
+  const retryFetch = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      await fetchCars();
+    } catch (err) {
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to load vehicles. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
@@ -223,14 +199,17 @@ const Cars = () => {
             </p>
           </motion.div>
 
-          {/* Animated Search Bar */}
+          {/* Search Bar */}
           <motion.div
             initial={{ opacity: 0, y: 25 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25, duration: 0.6 }}
             className="mx-auto mt-9 flex max-w-2xl items-center gap-3 rounded-2xl border border-white bg-white p-2.5 shadow-[0_12px_40px_rgba(15,23,42,0.08)] transition-shadow duration-300 focus-within:shadow-[0_15px_45px_rgba(37,99,235,0.14)]"
           >
-            <Search className="ml-2 shrink-0 text-slate-400" size={21} />
+            <Search
+              className="ml-2 shrink-0 text-slate-400"
+              size={21}
+            />
 
             <input
               type="text"
@@ -242,6 +221,7 @@ const Cars = () => {
 
             {search && (
               <button
+                type="button"
                 onClick={() => setSearch("")}
                 aria-label="Clear search"
                 className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
@@ -251,10 +231,12 @@ const Cars = () => {
             )}
 
             <motion.button
+              type="button"
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.94 }}
               onClick={() => setShowFilters((previous) => !previous)}
               aria-label="Toggle filters"
+              aria-expanded={showFilters}
               className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition ${
                 showFilters
                   ? "bg-blue-600 text-white"
@@ -305,8 +287,9 @@ const Cars = () => {
                       >
                         Maximum daily price
                       </label>
+
                       <span className="font-semibold text-blue-600">
-                        ${maxPrice}
+                        ₹{maxPrice}
                       </span>
                     </div>
 
@@ -317,23 +300,21 @@ const Cars = () => {
                       max="500"
                       step="50"
                       value={maxPrice}
-                      onChange={(e) => setMaxPrice(Number(e.target.value))}
+                      onChange={(e) =>
+                        setMaxPrice(Number(e.target.value))
+                      }
                       className="w-full cursor-pointer accent-blue-600"
                     />
 
                     <div className="flex justify-between text-xs text-slate-400">
-                      <span>$100/day</span>
-                      <span>$500/day</span>
+                      <span>₹100/day</span>
+                      <span>₹500/day</span>
                     </div>
                   </div>
 
                   <button
-                    onClick={() => {
-                      setSortBy("featured");
-                      setMaxPrice(500);
-                      setActiveCategory("All");
-                      setSearch("");
-                    }}
+                    type="button"
+                    onClick={resetFilters}
                     className="mt-4 text-sm font-semibold text-blue-600 hover:text-blue-800"
                   >
                     Reset all filters
@@ -343,7 +324,7 @@ const Cars = () => {
             )}
           </AnimatePresence>
 
-          {/* Category Chips */}
+          {/* Dynamic Categories */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -352,6 +333,7 @@ const Cars = () => {
           >
             {categories.map((category) => (
               <motion.button
+                type="button"
                 key={category}
                 whileHover={{ y: -2 }}
                 whileTap={{ scale: 0.96 }}
@@ -381,6 +363,7 @@ const Cars = () => {
             <p className="text-sm font-medium text-blue-600">
               THE RENTORA COLLECTION
             </p>
+
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
               Available vehicles
             </h2>
@@ -388,160 +371,211 @@ const Cars = () => {
 
           <p className="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-600">
             <span className="font-semibold text-slate-900">
-              {filteredCars.length}
+              {loading ? "…" : filteredCars.length}
             </span>{" "}
             {filteredCars.length === 1 ? "vehicle" : "vehicles"} found
           </p>
         </motion.div>
 
-        <motion.div
-          layout
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          <AnimatePresence mode="popLayout">
-            {filteredCars.map((car) => (
-              <motion.article
-                layout
-                key={car.id}
-                variants={cardVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                whileHover={{
-                  y: -7,
-                  transition: { duration: 0.22 },
-                }}
-                className="group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_5px_20px_rgba(15,23,42,0.06)] transition-shadow duration-300 hover:shadow-[0_20px_45px_rgba(15,23,42,0.12)]"
-              >
-                {/* Car Image */}
-                <Link
-                  to={`/car-details/${car.id}`}
-                  className="relative block overflow-hidden bg-slate-100"
-                >
-                  <div className="relative aspect-[16/10] overflow-hidden">
-                    <motion.img
-                      src={car.image}
-                      alt={car.name}
-                      loading="lazy"
-                      whileHover={{ scale: 1.07 }}
-                      transition={{ duration: 0.55, ease: "easeOut" }}
-                      className="h-full w-full object-cover"
-                    />
+        {/* Loading State */}
+        {loading && (
+          <div className="flex flex-col items-center justify-center gap-3 py-20 text-slate-500">
+            <RefreshCw
+              size={26}
+              className="animate-spin text-blue-600"
+            />
+            <p className="text-sm">Loading available vehicles...</p>
+          </div>
+        )}
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10" />
-
-                    <span className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/95 px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      Available now
-                    </span>
-
-                    <div className="absolute bottom-4 right-4 rounded-xl bg-slate-950/90 px-3.5 py-2.5 text-white shadow-lg backdrop-blur-md">
-                      <span className="text-lg font-bold">${car.price}</span>
-                      <span className="ml-1 text-xs text-slate-300">
-                        / day
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-
-                {/* Vehicle Details */}
-                <div className="p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
-                        {car.category} · {car.year}
-                      </p>
-                      <h3 className="mt-1 text-lg font-bold text-slate-900 transition-colors group-hover:text-blue-600">
-                        {car.name}
-                      </h3>
-                    </div>
-
-                    <motion.div
-                      whileHover={{ rotate: 45, scale: 1.08 }}
-                      transition={{ duration: 0.2 }}
-                      className="rounded-full border border-slate-200 p-2 text-slate-500 transition-colors group-hover:border-blue-200 group-hover:text-blue-600"
-                    >
-                      <ArrowUpRight size={18} />
-                    </motion.div>
-                  </div>
-
-                  <div className="mt-5 grid grid-cols-2 gap-x-3 gap-y-4 text-sm text-slate-600">
-                    <div className="flex items-center gap-2">
-                      <Users size={17} className="shrink-0 text-slate-400" />
-                      <span>{car.seats} Seats</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Fuel size={17} className="shrink-0 text-slate-400" />
-                      <span>{car.fuel}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Settings2
-                        size={17}
-                        className="shrink-0 text-slate-400"
-                      />
-                      <span>{car.transmission}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <MapPin
-                        size={17}
-                        className="shrink-0 text-slate-400"
-                      />
-                      <span className="truncate">{car.location}</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 border-t border-slate-100 pt-4">
-                    <Link
-                      to={`/car-details/${car.id}`}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors duration-200 hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
-                    >
-                      View details
-                      <ArrowUpRight size={17} />
-                    </Link>
-                  </div>
-                </div>
-              </motion.article>
-            ))}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* Empty State */}
-        {filteredCars.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="py-20 text-center"
-          >
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-              <Search size={28} />
-            </div>
-
-            <h3 className="mt-5 text-xl font-bold text-slate-900">
-              No vehicles found
+        {/* Error State */}
+        {!loading && error && (
+          <div className="py-20 text-center">
+            <h3 className="text-xl font-bold text-slate-900">
+              Unable to load vehicles
             </h3>
 
-            <p className="mt-2 text-sm text-slate-500">
-              Try a different search or adjust your filters.
-            </p>
+            <p className="mt-2 text-sm text-slate-500">{error}</p>
 
             <button
-              onClick={() => {
-                setSearch("");
-                setActiveCategory("All");
-                setMaxPrice(500);
-                setSortBy("featured");
-              }}
-              className="mt-6 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+              type="button"
+              onClick={retryFetch}
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
             >
-              Clear filters
+              <RefreshCw size={16} />
+              Try again
             </button>
-          </motion.div>
+          </div>
+        )}
+
+        {/* Vehicle Cards */}
+        {!loading && !error && (
+          <>
+            <motion.div
+              layout
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+            >
+              <AnimatePresence mode="popLayout">
+                {filteredCars.map((car) => (
+                  <motion.article
+                    layout
+                    key={car.id}
+                    variants={cardVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    whileHover={{
+                      y: -7,
+                      transition: { duration: 0.22 },
+                    }}
+                    className="group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_5px_20px_rgba(15,23,42,0.06)] transition-shadow duration-300 hover:shadow-[0_20px_45px_rgba(15,23,42,0.12)]"
+                  >
+                    {/* Car Image */}
+                    <Link
+                      to={`/car-details/${car.id}`}
+                      className="relative block overflow-hidden bg-slate-100"
+                    >
+                      <div className="relative aspect-[16/10] overflow-hidden">
+                        {car.image ? (
+                          <motion.img
+                            src={car.image}
+                            alt={car.name}
+                            loading="lazy"
+                            whileHover={{ scale: 1.07 }}
+                            transition={{
+                              duration: 0.55,
+                              ease: "easeOut",
+                            }}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-slate-100 text-slate-400">
+                            <CarFront size={44} />
+                          </div>
+                        )}
+
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10" />
+
+                        <span className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/95 px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Available now
+                        </span>
+
+                        <div className="absolute bottom-4 right-4 rounded-xl bg-slate-950/90 px-3.5 py-2.5 text-white shadow-lg backdrop-blur-md">
+                          <span className="text-lg font-bold">
+                            ₹{car.price.toLocaleString("en-IN")}
+                          </span>
+
+                          <span className="ml-1 text-xs text-slate-300">
+                            / day
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+
+                    {/* Vehicle Details */}
+                    <div className="p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                            {car.category} · {car.year || "Year unavailable"}
+                          </p>
+
+                          <h3 className="mt-1 text-lg font-bold text-slate-900 transition-colors group-hover:text-blue-600">
+                            {car.name}
+                          </h3>
+                        </div>
+
+                        <motion.div
+                          whileHover={{ rotate: 45, scale: 1.08 }}
+                          transition={{ duration: 0.2 }}
+                          className="rounded-full border border-slate-200 p-2 text-slate-500 transition-colors group-hover:border-blue-200 group-hover:text-blue-600"
+                        >
+                          <ArrowUpRight size={18} />
+                        </motion.div>
+                      </div>
+
+                      <div className="mt-5 grid grid-cols-2 gap-x-3 gap-y-4 text-sm text-slate-600">
+                        <div className="flex items-center gap-2">
+                          <Users
+                            size={17}
+                            className="shrink-0 text-slate-400"
+                          />
+                          <span>{car.seats || "N/A"} Seats</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Fuel
+                            size={17}
+                            className="shrink-0 text-slate-400"
+                          />
+                          <span>{car.fuel}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Settings2
+                            size={17}
+                            className="shrink-0 text-slate-400"
+                          />
+                          <span>{car.transmission}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <MapPin
+                            size={17}
+                            className="shrink-0 text-slate-400"
+                          />
+                          <span className="truncate">{car.location}</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 border-t border-slate-100 pt-4">
+                        <Link
+                          to={`/car-details/${car.id}`}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors duration-200 hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                        >
+                          View details
+                          <ArrowUpRight size={17} />
+                        </Link>
+                      </div>
+                    </div>
+                  </motion.article>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+
+            {/* Empty State */}
+            {filteredCars.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="py-20 text-center"
+              >
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                  <Search size={28} />
+                </div>
+
+                <h3 className="mt-5 text-xl font-bold text-slate-900">
+                  No vehicles found
+                </h3>
+
+                <p className="mt-2 text-sm text-slate-500">
+                  Try a different search or adjust your filters.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="mt-6 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                >
+                  Clear filters
+                </button>
+              </motion.div>
+            )}
+          </>
         )}
       </section>
     </main>

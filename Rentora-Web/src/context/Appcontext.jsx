@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useCallback,
 } from "react";
 
 import axios from "axios";
@@ -68,36 +69,44 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Fetch available car listings
-  const fetchCars = async () => {
-    setLoading(true);
 
-    try {
-      const { data } = await axios.get("/api/user/cars");
+// Fetch available car listings
+const fetchCars = useCallback(async () => {
+  setLoading(true);
 
-      if (data.success) {
-        setCars(data.cars || []);
-      } else {
-        setCars([]);
-        console.error(data.message || "Unable to fetch cars");
-      }
-    } catch (error) {
+  try {
+    console.log("Fetching cars from:", axios.defaults.baseURL);
+
+    const { data } = await axios.get("/api/user/cars");
+
+    console.log("Cars API response:", data);
+
+    if (data.success) {
+      setCars(data.cars || []);
+    } else {
       setCars([]);
-
-      console.error(
-        "Fetch cars error:",
-        error.response?.data || error.message
-      );
-    } finally {
-      setLoading(false);
+      console.error("Unable to fetch cars:", data.message);
     }
-  };
+  } catch (error) {
+    setCars([]);
+
+    console.error("Fetch cars error:", {
+      message: error.message,
+      status: error.response?.status,
+      response: error.response?.data,
+    });
+  } finally {
+    setLoading(false);
+    console.log("Car loading finished");
+  }
+}, []);
+
 
   // Restore the session and load cars when the app starts
   useEffect(() => {
     fetchUser();
     fetchCars();
-  }, []);
+  }, [fetchCars]);
 
   // Logout
   const logout = async () => {

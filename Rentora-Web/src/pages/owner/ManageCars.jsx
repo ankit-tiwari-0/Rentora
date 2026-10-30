@@ -1,5 +1,5 @@
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Eye,
@@ -13,63 +13,8 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const initialCars = [
-  {
-    id: "1",
-    name: "Toyota Corolla",
-    year: 2023,
-    category: "Economy",
-    price: 4500,
-    transmission: "Automatic",
-    fuelType: "Petrol",
-    seats: 5,
-    status: "Available",
-    image:
-      "https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: "2",
-    name: "Honda Civic",
-    year: 2022,
-    category: "Economy",
-    price: 4800,
-    transmission: "Automatic",
-    fuelType: "Petrol",
-    seats: 5,
-    status: "Not Available",
-    image:
-      "https://images.unsplash.com/photo-1590362891991-f776e747a588?auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: "3",
-    name: "BMW 3 Series",
-    year: 2024,
-    category: "Luxury",
-    price: 9500,
-    transmission: "Automatic",
-    fuelType: "Diesel",
-    seats: 5,
-    status: "Available",
-    image:
-      "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: "4",
-    name: "Tesla Model 3",
-    year: 2024,
-    category: "Luxury",
-    price: 12000,
-    transmission: "Automatic",
-    fuelType: "Electric",
-    seats: 5,
-    status: "Available",
-    image:
-      "https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&w=500&q=80",
-  },
-];
-
-const categories = ["All", "Economy", "Luxury"];
+import { useAppContext } from "../../context/Appcontext";
+import toast from "react-hot-toast";
 
 const formatPrice = (price) =>
   new Intl.NumberFormat("en-IN", {
@@ -79,19 +24,61 @@ const formatPrice = (price) =>
   }).format(price);
 
 const ManageCars = () => {
-  const [cars, setCars] = useState(initialCars);
+  const { fetchOwnerCars, toggleCar, deleteCar: deleteCarRequest } = useAppContext();
+  const [cars, setCars] = useState([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [selectedCar, setSelectedCar] = useState(null);
   const [deleteCar, setDeleteCar] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [busyCarId, setBusyCarId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const normalizeCar = (car) => ({
+    ...car,
+    id: car._id || car.id,
+    name: [car.brand, car.model].filter(Boolean).join(" ") || car.name || "Unnamed vehicle",
+    year: car.year ?? "N/A",
+    category: car.category || "Uncategorized",
+    price: Number(car.pricePerDay ?? car.price ?? 0),
+    transmission: car.transmission || "N/A",
+    fuelType: car.fuel_type || car.fuelType || "N/A",
+    seats: car.seating_capacity ?? car.seats ?? "N/A",
+    status: (car.isAvailable ?? (car.status === "Available")) ? "Available" : "Not Available",
+    image: car.image || "",
+  });
+
+  const loadCars = async () => {
+    setLoading(true);
+    try {
+      const result = await fetchOwnerCars();
+      const ownerCars = Array.isArray(result) ? result : [];
+      setCars(ownerCars.map(normalizeCar));
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Unable to load your cars");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCars();
+    // Load the owner's inventory when this page mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const categories = useMemo(
+    () => ["All", ...new Set(cars.map((car) => car.category).filter(Boolean))],
+    [cars]
+  );
 
   const filteredCars = useMemo(() => {
     const query = search.trim().toLowerCase();
 
     return cars.filter((car) => {
       const matchesSearch =
-        car.name.toLowerCase().includes(query) ||
-        car.category.toLowerCase().includes(query);
+        (car.name || "").toLowerCase().includes(query) ||
+        (car.category || "").toLowerCase().includes(query);
 
       const matchesCategory =
         category === "All" || car.category === category;
@@ -100,46 +87,34 @@ const ManageCars = () => {
     });
   }, [cars, search, category]);
 
-  const toggleAvailability = (carId) => {
-    /*
-     * BACKEND INTEGRATION:
-     * Replace this local state update with:
-     * PATCH /api/owner/cars/:id/status
-     *
-     * Update the UI after the server confirms the change.
-     */
-    setCars((previous) =>
-      previous.map((car) =>
-        car.id === carId
-          ? {
-              ...car,
-              status:
-                car.status === "Available"
-                  ? "Not Available"
-                  : "Available",
-            }
-          : car
-      )
-    );
+  const toggleAvailability = async (carId) => {
+    if (busyCarId) return;
+    setBusyCarId(carId);
+    try {
+      await toggleCar(carId);
+      await loadCars();
+      toast.success("Car availability updated");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Could not update availability");
+    } finally {
+      setBusyCarId(null);
+    }
   };
 
-  const confirmDelete = () => {
-    if (!deleteCar) return;
-
-    /*
-     * BACKEND INTEGRATION:
-     * Call DELETE /api/owner/cars/:id.
-     * Remove the car from the UI only after successful response.
-     */
-    setCars((previous) =>
-      previous.filter((car) => car.id !== deleteCar.id)
-    );
-
-    if (selectedCar?.id === deleteCar.id) {
-      setSelectedCar(null);
+  const confirmDelete = async () => {
+    if (!deleteCar || deleting) return;
+    setDeleting(true);
+    try {
+      await deleteCarRequest(deleteCar.id);
+      setCars((previous) => previous.filter((car) => car.id !== deleteCar.id));
+      if (selectedCar?.id === deleteCar.id) setSelectedCar(null);
+      setDeleteCar(null);
+      toast.success("Car listing removed");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Could not delete this car");
+    } finally {
+      setDeleting(false);
     }
-
-    setDeleteCar(null);
   };
 
   return (
@@ -259,6 +234,12 @@ const ManageCars = () => {
         </div>
       </div>
 
+      {loading && (
+        <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          Loading vehicles from your Rentora account...
+        </div>
+      )}
+
       {/* Vehicle list */}
       <motion.section
         initial={{ opacity: 0, y: 12 }}
@@ -344,8 +325,9 @@ const ManageCars = () => {
                     <td className="px-5 py-3">
                       <button
                         type="button"
+                        disabled={busyCarId === car.id}
                         onClick={() => toggleAvailability(car.id)}
-                        title="Toggle availability (frontend demo)"
+                        title="Toggle vehicle availability"
                         className={`inline-flex rounded-full px-3 py-1.5 text-xs font-semibold transition hover:ring-2 hover:ring-offset-1 ${
                           car.status === "Available"
                             ? "bg-emerald-50 text-emerald-700 hover:ring-emerald-200"
@@ -421,6 +403,7 @@ const ManageCars = () => {
 
                     <button
                       type="button"
+                      disabled={busyCarId === car.id}
                       onClick={() => toggleAvailability(car.id)}
                       className={`mt-2 rounded-full px-2.5 py-1 text-xs font-semibold ${
                         car.status === "Available"
@@ -458,7 +441,7 @@ const ManageCars = () => {
         </div>
 
         {/* Empty state */}
-        {filteredCars.length === 0 && (
+        {!loading && filteredCars.length === 0 && (
           <div className="px-5 py-16 text-center">
             <CarFront size={32} className="mx-auto text-slate-300" />
 
@@ -484,10 +467,9 @@ const ManageCars = () => {
         )}
       </motion.section>
 
-      <p className="mt-4 text-xs leading-5 text-slate-400">
-        Demo vehicles are stored in local React state. Connect your backend
-        to manage saved vehicles permanently.
-      </p>
+      {loading && (
+        <p className="mt-4 text-center text-sm text-slate-500">Loading your vehicles...</p>
+      )}
 
       {/* Vehicle details modal */}
       <AnimatePresence>
@@ -603,8 +585,7 @@ const ManageCars = () => {
               </h2>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Remove <strong>{deleteCar.name}</strong> from this demo list?
-                This change only affects the current frontend session.
+                Remove <strong>{deleteCar.name}</strong> from your vehicle listings? This action will be sent to the server.
               </p>
 
               <div className="mt-6 flex gap-3">
