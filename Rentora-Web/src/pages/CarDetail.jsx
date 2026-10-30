@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "motion/react";
+import { toast } from "react-hot-toast";
 import {
   ArrowLeft,
   Users,
@@ -66,12 +67,18 @@ const getRentalDays = (pickupDate, returnDate) => {
 const CarDetail = () => {
   const { id } = useParams();
   const shouldReduceMotion = useReducedMotion();
+  const navigate = useNavigate();
 
   const {
     cars = [],
     loading: carsLoading,
     currency = "₹",
+    user,
+    checkAvailability,
+    createBooking,
   } = useAppContext();
+
+  const [bookingLoading, setBookingLoading] = useState(false);
 
   const [pickupDate, setPickupDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
@@ -113,43 +120,70 @@ const CarDetail = () => {
   const rentalDays = getRentalDays(pickupDate, returnDate);
   const estimatedTotal = rentalDays * (car?.price || 0);
 
-  const handleBooking = (event) => {
+  const handleBooking = async (event) => {
     event.preventDefault();
 
     if (!car) return;
 
+    if (!user) {
+      toast.error("Please log in to book a car.");
+      navigate("/login");
+      return;
+    }
+
     if (!pickupDate || !returnDate) {
-      window.alert("Please select both pickup and return dates.");
+      toast.error("Please select pickup and return dates.");
       return;
     }
 
     if (pickupDate < today) {
-      window.alert("Pickup date cannot be in the past.");
+      toast.error("Pickup date cannot be in the past.");
       return;
     }
 
-    if (returnDate < pickupDate) {
-      window.alert("Return date cannot be before pickup date.");
+    if (returnDate <= pickupDate) {
+      toast.error("Return date must be after the pickup date.");
       return;
     }
 
     if (!car.isAvailable || !car.isListed) {
-      window.alert("This vehicle is currently unavailable.");
+      toast.error("This vehicle is currently unavailable.");
       return;
     }
 
-    // TODO: Integrate the actual booking API.
-    // The backend must validate dates, availability, and final price.
-    window.alert(
-      "Booking API integration is pending.\n\n" +
-        `Car: ${car.name}\n` +
-        `Pickup: ${pickupDate}\n` +
-        `Return: ${returnDate}\n` +
-        `Duration: ${rentalDays} day(s)\n` +
-        `Estimated total: ${currency}${estimatedTotal.toLocaleString("en-IN")}`
-    );
-  };
+    if (bookingLoading) return;
 
+    setBookingLoading(true);
+
+    try {
+      const availability = await checkAvailability({
+        location: car.location,
+        pickupDate,
+        returnDate,
+      });
+
+      const isCarAvailable = availability?.availableCars?.some(
+        (availableCar) => String(availableCar._id) === String(car.id)
+      );
+
+      if (!isCarAvailable) {
+        toast.error("This car is unavailable for your selected dates.");
+        return;
+      }
+
+      await createBooking({
+        car: car.id,
+        pickupDate,
+        returnDate,
+      });
+
+      navigate("/my-bookings");
+    } catch (error) {
+      console.error("Booking failed:", error);
+    } finally {
+      setBookingLoading(false);
+    }
+  };
   // Loading state from Appcontext.jsx
   if (carsLoading) {
     return (
@@ -253,11 +287,10 @@ const CarDetail = () => {
               <div className="absolute bottom-4 left-4">
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3.5 py-2 text-xs font-medium text-white shadow-lg backdrop-blur-xl">
                   <span
-                    className={`size-2 rounded-full ${
-                      car.isAvailable && car.isListed
+                    className={`size-2 rounded-full ${car.isAvailable && car.isListed
                         ? "bg-emerald-400"
                         : "bg-rose-400"
-                    }`}
+                      }`}
                   />
 
                   {car.isAvailable && car.isListed
@@ -314,10 +347,10 @@ const CarDetail = () => {
                   whileHover={
                     motionEnabled
                       ? {
-                          y: -5,
-                          borderColor: "#bfdbfe",
-                          boxShadow: "0 12px 25px rgba(37,99,235,0.08)",
-                        }
+                        y: -5,
+                        borderColor: "#bfdbfe",
+                        boxShadow: "0 12px 25px rgba(37,99,235,0.08)",
+                      }
                       : undefined
                   }
                   transition={{ duration: 0.25 }}
@@ -501,30 +534,18 @@ const CarDetail = () => {
               {/* Booking button */}
               <motion.button
                 type="submit"
-                disabled={!car.isAvailable || !car.isListed}
-                whileHover={
-                  motionEnabled && car.isAvailable && car.isListed
-                    ? {
-                        scale: 1.02,
-                        boxShadow: "0 12px 28px rgba(37,99,235,0.25)",
-                      }
-                    : undefined
+                disabled={
+                  bookingLoading ||
+                  !car.isAvailable ||
+                  !car.isListed
                 }
-                whileTap={
-                  motionEnabled && car.isAvailable && car.isListed
-                    ? { scale: 0.98 }
-                    : undefined
-                }
-                className="group flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-600/15 transition-colors duration-300 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
+                className="group flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
-                {car.isAvailable && car.isListed
-                  ? "Reserve this car"
-                  : "Vehicle unavailable"}
-
-                <ArrowUpRight
-                  size={18}
-                  className="transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-                />
+                {bookingLoading
+                  ? "Checking availability..."
+                  : car.isAvailable && car.isListed
+                    ? "Reserve this car"
+                    : "Vehicle unavailable"}
               </motion.button>
             </form>
 
