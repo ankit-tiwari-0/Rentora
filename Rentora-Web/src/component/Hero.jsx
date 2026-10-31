@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
@@ -85,10 +86,18 @@ const Hero = () => {
   };
 
   return (
-    <section className="relative min-h-[calc(100vh-80px)] overflow-hidden bg-[#f0f4f9] px-4 pb-10 pt-12 sm:px-6 sm:pb-14 sm:pt-16 lg:px-8 lg:pt-14">
+    <section className="
+      relative min-h-[calc(100vh-80px)]
+      overflow-hidden bg-[#f0f4f9]
+      px-4 pb-10 pt-12
+      sm:px-6 sm:pb-14 sm:pt-16
+      lg:px-8 lg:pt-14
+      max-sm:min-h-[calc(100svh-64px)]
+      max-sm:px-3 max-sm:pt-8 max-sm:pb-5
+    ">
       <div className="mx-auto max-w-7xl">
 
-        {/* Hero heading */}
+        {/* Hero Heading */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -97,41 +106,75 @@ const Hero = () => {
         >
           <motion.p
             variants={revealVariants}
-            className="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-blue-600 sm:text-sm"
+            className="
+              mb-3 text-xs font-semibold uppercase
+              tracking-[0.25em] text-blue-600
+              sm:text-sm
+              max-sm:mb-2 max-sm:text-[10px]
+              max-sm:tracking-[0.22em]
+            "
           >
             Discover your next drive
           </motion.p>
 
           <motion.h1
             variants={revealVariants}
-            className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl md:text-5xl lg:text-6xl"
+            className="
+              text-3xl font-bold tracking-tight text-slate-950
+              sm:text-4xl md:text-5xl lg:text-6xl
+              max-sm:text-[27px] max-sm:leading-tight
+            "
           >
             Luxury Cars on Rent
           </motion.h1>
 
           <motion.p
             variants={revealVariants}
-            className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-500 sm:text-base"
+            className="
+              mx-auto mt-4 max-w-xl text-sm
+              leading-6 text-slate-500 sm:text-base
+              max-sm:mt-3 max-sm:px-2
+              max-sm:text-[13px] max-sm:leading-6
+            "
           >
             Premium cars. Unforgettable journeys.
             Find the perfect ride for your next adventure.
           </motion.p>
         </motion.div>
 
-        {/* Search form */}
+        {/* Search Form */}
         <motion.form
           onSubmit={handleSearch}
           variants={revealVariants}
           initial="hidden"
           animate="visible"
           transition={{ delay: 0.35 }}
-          className="mx-auto mt-8 grid max-w-5xl grid-cols-1 gap-5 rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_15px_45px_rgba(15,23,42,0.09)] backdrop-blur-xl sm:mt-10 sm:grid-cols-2 sm:gap-6 sm:p-7 lg:mt-12 lg:grid-cols-[1.2fr_1fr_1fr_auto] lg:items-center lg:gap-6 lg:rounded-full lg:px-8 lg:py-5"
+          className="
+            mx-auto mt-8 grid max-w-5xl
+            grid-cols-1 gap-5 rounded-3xl
+            border border-white/80 bg-white/95
+            p-5 shadow-[0_15px_45px_rgba(15,23,42,0.09)]
+            backdrop-blur-xl
+
+            sm:mt-10 sm:grid-cols-2 sm:gap-6 sm:p-7
+
+            lg:mt-12
+            lg:grid-cols-[1.2fr_1fr_1fr_auto]
+            lg:items-center lg:gap-6
+            lg:rounded-full lg:px-8 lg:py-5
+
+            max-sm:mt-6 max-sm:gap-4
+            max-sm:rounded-[26px] max-sm:p-5
+          "
         >
-          {/* Pickup location */}
+          {/* Pickup Location */}
           <div className="min-w-0">
             <label
               htmlFor="pickup-location"
-              className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-slate-900"
+              className="
+                mb-2 flex items-center gap-1.5
+                text-sm font-semibold text-slate-900
+              "
             >
               Pickup Location
               <ChevronDown size={16} />
@@ -142,7 +185,11 @@ const Hero = () => {
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               required
-              className="w-full cursor-pointer bg-transparent text-sm text-slate-500 outline-none focus:text-slate-900"
+              className="
+                w-full cursor-pointer bg-transparent
+                text-sm text-slate-500 outline-none
+                focus:text-slate-900
+              "
             >
               <option value="">Please select location</option>
               <option value="Delhi">Delhi</option>
@@ -153,11 +200,14 @@ const Hero = () => {
             </select>
           </div>
 
-          {/* Pickup date */}
+          {/* Pickup Date */}
           <div className="min-w-0">
             <label
               htmlFor="pickup-date"
-              className="mb-2 block text-sm font-semibold text-slate-900"
+              className="
+                mb-2 block text-sm
+                font-semibold text-slate-900
+              "
             >
               Pick-up Date
             </label>
@@ -176,15 +226,22 @@ const Hero = () => {
                 }
               }}
               required
-              className="block w-full min-w-0 cursor-pointer bg-transparent text-sm text-slate-500 outline-none focus:text-blue-600"
+              className="
+                block w-full min-w-0 cursor-pointer
+                bg-transparent text-sm text-slate-500
+                outline-none focus:text-blue-600
+              "
             />
           </div>
 
-          {/* Return date */}
+          {/* Return Date */}
           <div className="min-w-0">
             <label
               htmlFor="return-date"
-              className="mb-2 block text-sm font-semibold text-slate-900"
+              className="
+                mb-2 block text-sm
+                font-semibold text-slate-900
+              "
             >
               Return Date
             </label>
@@ -196,11 +253,15 @@ const Hero = () => {
               min={pickupDate || today}
               onChange={(e) => setReturnDate(e.target.value)}
               required
-              className="block w-full min-w-0 cursor-pointer bg-transparent text-sm text-slate-500 outline-none focus:text-blue-600"
+              className="
+                block w-full min-w-0 cursor-pointer
+                bg-transparent text-sm text-slate-500
+                outline-none focus:text-blue-600
+              "
             />
           </div>
 
-          {/* Search button */}
+          {/* Search Button */}
           <motion.button
             type="submit"
             whileHover={{
@@ -208,15 +269,30 @@ const Hero = () => {
               boxShadow: "0px 8px 24px rgba(37, 99, 235, 0.3)",
             }}
             whileTap={{ scale: 0.96 }}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-blue-600 px-8 text-sm font-semibold text-white shadow-md shadow-blue-600/20 transition-colors hover:bg-blue-700 sm:col-span-2 lg:col-span-1 lg:w-auto"
+            className="
+              flex h-12 w-full items-center
+              justify-center gap-2 rounded-full
+              bg-blue-600 px-8 text-sm font-semibold
+              text-white shadow-md shadow-blue-600/20
+              transition-colors hover:bg-blue-700
+
+              sm:col-span-2
+              lg:col-span-1 lg:w-auto
+
+              max-sm:h-[50px] max-sm:mt-1
+            "
           >
             <Search size={19} />
             Search
           </motion.button>
         </motion.form>
 
-        {/* Sequential car showcase */}
-        <div className="mx-auto mt-10 w-full max-w-5xl overflow-hidden sm:mt-12 lg:mt-14">
+        {/* Sequential Animated Car Showcase */}
+        <div className="
+          mx-auto mt-10 w-full max-w-5xl
+          overflow-hidden sm:mt-12 lg:mt-14
+          max-sm:mt-7
+        ">
           <AnimatePresence mode="wait" initial={false}>
             <motion.img
               key={activeCar}
@@ -230,7 +306,11 @@ const Hero = () => {
                 duration: 1.3,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              className="mx-auto block h-auto w-full max-w-[850px] object-contain"
+              className="
+                mx-auto block h-auto w-full
+                max-w-/[850px] object-contain
+                max-sm:w-[88%] max-sm:max-w-[340px]
+              "
             />
           </AnimatePresence>
         </div>
