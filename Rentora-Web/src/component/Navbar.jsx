@@ -69,6 +69,7 @@ const Navbar = () => {
     authLoading,
     fetchUser,
     logout,
+    updateUserImage,
     axios,
   } = useAppContext();
 
@@ -137,6 +138,37 @@ const Navbar = () => {
       toast.error(
         error.response?.data?.message || "Unable to log out. Please try again."
       );
+    }
+  };
+
+  // Upload a new profile picture for the logged-in user.
+  const handleProfileImageChange = async (event) => {
+    const image = event.target.files?.[0];
+
+    if (!image) return;
+
+    // Client-side checks for a better upload experience.
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    if (!allowedTypes.includes(image.type)) {
+      toast.error("Please choose a JPG, PNG, or WebP image.");
+      event.target.value = "";
+      return;
+    }
+
+    if (image.size > 5 * 1024 * 1024) {
+      toast.error("Image size must not exceed 5 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      await updateUserImage(image);
+    } catch (error) {
+      console.error("Profile image upload failed:", error);
+    } finally {
+      // Allows selecting the same file again after an upload.
+      event.target.value = "";
     }
   };
 
@@ -239,8 +271,16 @@ const Navbar = () => {
     <div className={mobile ? "rounded-xl border border-slate-200 bg-white p-3" : "absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl"}>
       <div className={`border-b border-slate-100 ${mobile ? "flex items-center gap-3 pb-3" : "px-3 py-3"}`}>
         {mobile && (
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-            <UserRound size={19} />
+          <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-blue-600">
+            {user?.image ? (
+              <img
+                src={user.image}
+                alt={`${user?.name || "User"} profile`}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <UserRound size={19} />
+            )}
           </span>
         )}
         <div className="min-w-0 flex-1">
@@ -255,6 +295,14 @@ const Navbar = () => {
           )}
         </div>
       </div>
+
+      <label
+        htmlFor="profile-image-upload"
+        className="mt-1 flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-blue-50 hover:text-blue-600"
+      >
+        <UserRound size={16} />
+        Change Profile Picture
+      </label>
 
       {/* Customers see List Your Car; owners see Owner Dashboard. */}
       {!isOwner ? (
@@ -307,6 +355,16 @@ const Navbar = () => {
       }}
       className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-[#f0f4f9]/95 shadow-sm backdrop-blur-xl"
     >
+      {isAuthenticated && (
+        <input
+          type="file"
+          id="profile-image-upload"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={handleProfileImageChange}
+        />
+      )}
+
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:h-20 sm:px-6 lg:px-8">
         {/* Logo */}
         <motion.div
@@ -354,8 +412,16 @@ const Navbar = () => {
                   aria-label="Toggle account menu"
                   className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
-                  <span className="flex size-8 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                    <UserRound size={17} />
+                  <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-blue-600">
+                    {user?.image ? (
+                      <img
+                        src={user.image}
+                        alt={`${user?.name || "User"} profile`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <UserRound size={17} />
+                    )}
                   </span>
                   <span className="max-w-28 truncate">{user?.name || "My Account"}</span>
                   <ChevronDown size={15} className={`transition-transform ${profileOpen ? "rotate-180" : ""}`} />

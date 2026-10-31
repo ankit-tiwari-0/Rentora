@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import fs from "fs";
+import path from "path";
 import Car from "../model/carmodel.js";
 import imagekit from "../config/imageKit.js";
+import User from "../model/user.js";
 import Booking from "../model/BookingModel.js";
 
 // API to add a car
@@ -345,13 +347,13 @@ export const getDashboardData = async (req, res) => {
 
 
 // API to update user profile image
+
 export const updateUserImage = async (req, res) => {
     const imageFile = req.file;
 
     try {
         const userId = req.userId;
 
-        // Check authentication
         if (!userId) {
             return res.status(401).json({
                 success: false,
@@ -359,7 +361,6 @@ export const updateUserImage = async (req, res) => {
             });
         }
 
-        // Check uploaded file
         if (!imageFile) {
             return res.status(400).json({
                 success: false,
@@ -367,7 +368,6 @@ export const updateUserImage = async (req, res) => {
             });
         }
 
-        // Validate file type
         const allowedMimeTypes = [
             "image/jpeg",
             "image/png",
@@ -381,7 +381,6 @@ export const updateUserImage = async (req, res) => {
             });
         }
 
-        // Validate file size: maximum 5 MB
         if (imageFile.size > 5 * 1024 * 1024) {
             return res.status(400).json({
                 success: false,
@@ -389,17 +388,17 @@ export const updateUserImage = async (req, res) => {
             });
         }
 
-        // Read temporary file
-        const fileBuffer = await fs.readFile(imageFile.path);
+        // Read uploaded image
+        const fileBuffer = await fs.promises.readFile(imageFile.path);
 
-        // Upload image to ImageKit
+        // Upload to ImageKit
         const response = await imagekit.files.upload({
             file: fileBuffer.toString("base64"),
             fileName: `${userId}-${Date.now()}${path.extname(imageFile.originalname)}`,
             folder: "/users",
         });
 
-        // Build optimized image URL
+        // Generate optimized image URL
         const optimizedImageUrl = imagekit.helper.buildSrc({
             urlEndpoint: process.env.ENDPOINT,
             src: response.filePath,
@@ -410,7 +409,7 @@ export const updateUserImage = async (req, res) => {
             ],
         });
 
-        // Update profile image in database
+        // Update user in MongoDB
         const user = await User.findByIdAndUpdate(
             userId,
             { image: optimizedImageUrl },
@@ -433,17 +432,18 @@ export const updateUserImage = async (req, res) => {
             image: optimizedImageUrl,
             user,
         });
+
     } catch (error) {
         console.error("Update user image error:", error);
 
         return res.status(500).json({
             success: false,
-            message: "Failed to update profile image",
+            message: error.message || "Failed to update profile image",
         });
+
     } finally {
-        // Delete temporary file created by Multer
         if (imageFile?.path) {
-            await fs.unlink(imageFile.path).catch(() => {});
+            await fs.promises.unlink(imageFile.path).catch(() => {});
         }
     }
 };
