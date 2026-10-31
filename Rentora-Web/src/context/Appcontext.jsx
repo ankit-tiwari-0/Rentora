@@ -324,6 +324,48 @@ export const AppProvider = ({ children }) => {
   };
 
 
+  // Update user profile image
+const updateUserImage = async (image) => {
+  try {
+    if (!image) {
+      throw new Error("Please select an image");
+    }
+
+    const formData = new FormData();
+    formData.append("image", image);
+
+    const { data } = await axios.post(
+      "/api/car/update-image",
+      formData
+    );
+
+    if (!data.success) {
+      throw new Error(
+        data.message || "Failed to update profile image"
+      );
+    }
+
+    // Update user data in global context
+    if (data.user) {
+      setUser(data.user);
+    }
+
+    toast.success(
+      data.message || "Profile image updated successfully"
+    );
+
+    return data;
+  } catch (error) {
+    toast.error(
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to update profile image"
+    );
+
+    throw error;
+  }
+};
+
 
   // Shared context values
   const value = {
@@ -361,6 +403,8 @@ export const AppProvider = ({ children }) => {
     toggleCar,
     deleteCar,
     fetchDashboardData,
+    updateUserImage,
+
 
     checkAvailability,
     createBooking,

@@ -11,7 +11,7 @@ const carRoute = Router()
 carRoute.post("/add-car", upload.single("image"),authUser,requireOwner, addCar )
 carRoute.get("/cars",authUser,requireOwner, getOwnerCars )
 carRoute.get("/toggle-car",authUser,requireOwner, toggleCarAvailability )
-carRoute.get("/delete-car",authUser,requireOwner, DeleteCar )
+carRoute.delete("/delete-car/:carId", authUser, requireOwner, DeleteCar);
 carRoute.get("/dashboard",authUser,requireOwner, getDashboardData )
 carRoute.post('/update-image',upload.single("image"),authUser,updateUserImage)
 

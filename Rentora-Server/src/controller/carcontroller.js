@@ -133,54 +133,53 @@ export const toggleCarAvailability = async (req, res) => {
 };
 
 //delete
-
 export const DeleteCar = async (req, res) => {
-    try {
-        const userId = req.userId;
-        const { carId } = req.body;
+  try {
+    const userId = req.userId;
+    const { carId } = req.params;
 
-        if (!mongoose.Types.ObjectId.isValid(carId)) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid car ID",
-            });
-        }
-
-        const car = await Car.findById(carId);
-
-        if (!car) {
-            return res.status(404).json({
-                success: false,
-                message: "Car not found",
-            });
-        }
-
-        // Verify ownership
-        if (car.owner.toString() !== userId.toString()) {
-            return res.status(403).json({
-                success: false,
-                message: "You are not authorized to remove this car",
-            });
-        }
-
-        // Remove from active listings without deleting the record
-        car.isListed = false;
-        car.isAvailable = false;
-
-        await car.save();
-
-        return res.status(200).json({
-            success: true,
-            message: "Car removed from listings successfully",
-        });
-    } catch (error) {
-        console.error("Remove car error:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Failed to remove car from listings",
-        });
+    if (!mongoose.Types.ObjectId.isValid(carId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid car ID",
+      });
     }
+
+    const car = await Car.findById(carId);
+
+    if (!car) {
+      return res.status(404).json({
+        success: false,
+        message: "Car not found",
+      });
+    }
+
+    // Verify ownership
+    if (car.owner.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to remove this car",
+      });
+    }
+
+    // Soft delete: remove from active listings
+    car.isListed = false;
+    car.isAvailable = false;
+
+    await car.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Car removed from listings successfully",
+    });
+  } catch (error) {
+    console.error("Remove car error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to remove car from listings",
+    });
+  }
 };
 
 // API to get owner dashboard data
