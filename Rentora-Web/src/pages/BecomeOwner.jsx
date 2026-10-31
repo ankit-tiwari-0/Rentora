@@ -2,13 +2,14 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
+import DL from "../assets/DL.png";
 
 const BecomeOwner = () => {
   const navigate = useNavigate();
 
   return (
-    <section className="w-full px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-      <div className="relative mx-auto max-w-7xl overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-600 via-blue-500 to-blue-300">
+    <section className="w-full px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+      <div className="relative mx-auto max-w-7xl overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-blue-300 sm:rounded-3xl">
 
         <div className="relative flex min-h-[280px] flex-col sm:min-h-[320px] md:flex-row md:items-center">
 
@@ -34,15 +35,12 @@ const BecomeOwner = () => {
           </div>
 
           {/* Car Image */}
-          <div className="relative mt-/[-10px] flex h-40 w-full items-end justify-center sm:h-52 md:absolute md:bottom-0 md:right-0 md:mt-0 md:h-full md:w-[48%] md:justify-end">
-            {/* Add your car image here */}
-            {/*
+          <div className="relative -mt-2 flex h-44 w-full items-end justify-center sm:h-56 md:absolute md:bottom-0 md:right-0 md:mt-0 md:h-full md:w-[48%] md:justify-end">
             <img
-              src="/images/owner-car.png"
+              src={DL}
               alt="Luxury car"
               className="h-full w-full object-contain object-bottom md:object-right-bottom"
             />
-            */}
           </div>
 
         </div>
