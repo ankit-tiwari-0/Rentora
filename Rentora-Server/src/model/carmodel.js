@@ -54,6 +54,10 @@ const carSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
+        features: {
+            type: [String],
+            default: [],
+        },
         isAvailable: {
             type: Boolean,
             default: true,

@@ -195,7 +195,7 @@ const handleSubmit = async (event) => {
       seating_capacity: seats,
       location: form.location.trim(),
       description: form.description.trim(),
-      features: JSON.stringify(features),
+      features: features,
       image,
     });
 

@@ -7,6 +7,8 @@ import User from "../model/user.js";
 import Booking from "../model/BookingModel.js";
 
 // API to add a car
+
+// API to add a car
 export const addCar = async (req, res) => {
     try {
         const userId = req.userId;
@@ -20,6 +22,14 @@ export const addCar = async (req, res) => {
                 message: "Car image is required",
             });
         }
+
+        // Validate features
+        const features = Array.isArray(car.features)
+            ? car.features
+                .filter(feature => typeof feature === "string")
+                .map(feature => feature.trim())
+                .filter(Boolean)
+            : [];
 
         // Upload image to ImageKit
         const fileBuffer = fs.readFileSync(imageFile.path);
@@ -44,6 +54,7 @@ export const addCar = async (req, res) => {
         // Save car in MongoDB
         await Car.create({
             ...car,
+            features,
             owner: userId,
             image: optimizedImageUrl,
         });
@@ -52,6 +63,7 @@ export const addCar = async (req, res) => {
             success: true,
             message: "Car added successfully",
         });
+
     } catch (error) {
         console.error("Add car error:", error);
 
