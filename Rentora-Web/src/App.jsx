@@ -24,6 +24,7 @@ import ManageBooking from "./pages/owner/ManageBooking";
 import ManageCars from "./pages/owner/ManageCars";
 
 import { Toaster } from "react-hot-toast";
+import Payment from "./pages/Pay";
 
 // Protect routes that require authentication.
 const RequireAuth = () => {
@@ -96,6 +97,7 @@ const PublicLayout = () => {
         {/* Authenticated user pages */}
         <Route element={<RequireAuth />}>
           <Route path="/my-bookings" element={<MyBooking />} />
+          <Route path="/payment" element={<Payment />} />
         </Route>
 
         {/* Owner portal: authenticated owner required */}

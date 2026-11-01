@@ -1,57 +1,103 @@
 
 import React, { useState } from "react";
-import { Star, ChevronRight } from "lucide-react";
+import { Star, ChevronRight, ChevronLeft } from "lucide-react";
+
+import pr1 from "../assets/pr1.jpg";
+import pr2 from "../assets/pr2.jpg";
+import pr3 from "../assets/pr3.jpg";
+import pr4 from "../assets/pr4.jpg";
+import pr5 from "../assets/pr5.jpg";
+import pr6 from "../assets/pr6.png";
 
 const testimonials = [
   {
-    name: "Rahul Sharma",
-    location: "Noida, Uttar Pradesh",
+    name: "Priya 🌸",
+    location: "Shahadra Delhi",
     review:
-      "I've rented cars from various companies, but the experience with Rentora was exceptional. The booking process was smooth and the car was in excellent condition.",
-    avatar: null,
+      "Rentora made my journey effortless! Smooth booking, a beautiful car, and an amazing overall experience. Definitely booking again!",
+    avatar: pr6,
   },
   {
     name: "Priya Verma",
     location: "Delhi, India",
     review:
       "Rentora made my trip so much easier. The car was delivered right to my door, and the customer service was fantastic!",
-    avatar: null,
+    avatar: pr2,
   },
   {
-    name: "Aman Gupta",
+    name: "Avni",
     location: "Gurugram, Haryana",
     review:
       "I highly recommend Rentora! Their fleet is amazing, and I always feel like I'm getting the best deal with excellent service.",
-    avatar: null,
+    avatar: pr3,
+  },
+  {
+    name: "Rahul",
+    location: "Chandigarh, India",
+    review:
+      "The entire rental experience was convenient and hassle-free. The car was clean, comfortable, and ready on time.",
+    avatar: pr4,
+  },
+  {
+    name: "Sofia Ansari",
+    location: "Jaipur, Rajasthan",
+    review:
+      "Excellent service and a great selection of premium cars. Rentora made my weekend trip memorable.",
+    avatar: pr5,
+  },
+  {
+    name: "Shivani Parjapati",
+    location: "Noida, Uttar Pradesh",
+    review:
+      "I've rented cars from various companies, but the experience with Rentora was exceptional. The booking process was smooth and the car was in excellent condition.",
+    avatar: pr1,
   },
 ];
 
 const Testimonials = () => {
+  // Mobile carousel
   const [activeIndex, setActiveIndex] = useState(0);
+
+  // Desktop carousel
+  const [desktopIndex, setDesktopIndex] = useState(0);
 
   const nextTestimonial = () => {
     setActiveIndex((current) => (current + 1) % testimonials.length);
   };
 
+  const previousTestimonial = () => {
+    setActiveIndex(
+      (current) =>
+        (current - 1 + testimonials.length) % testimonials.length
+    );
+  };
+
+  // Desktop navigation
+  const nextDesktop = () => {
+    setDesktopIndex((current) =>
+      current >= testimonials.length - 3 ? 0 : current + 1
+    );
+  };
+
+  const previousDesktop = () => {
+    setDesktopIndex((current) =>
+      current <= 0 ? testimonials.length - 3 : current - 1
+    );
+  };
+
+  // Testimonial Card
   const renderCard = (testimonial) => (
     <div className="flex h-full flex-col rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_8px_25px_rgba(15,23,42,0.09)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_15px_35px_rgba(15,23,42,0.12)] sm:p-7">
 
       {/* Customer Information */}
       <div className="flex items-center gap-4">
         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-blue-50">
-
-          {/* Add customer image here */}
-          {/*
           <img
-            src="/images/customer-1.jpg"
+            src={testimonial.avatar}
             alt={testimonial.name}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover object-[center_20%]"
+            loading="lazy"
           />
-          */}
-
-          <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-blue-600">
-            {testimonial.name.charAt(0)}
-          </div>
         </div>
 
         <div className="min-w-0">
@@ -101,17 +147,53 @@ const Testimonials = () => {
           </p>
         </div>
 
-        {/* Desktop: Show All Testimonials */}
-        <div className="mt-12 hidden grid-cols-3 gap-7 md:grid lg:mt-14">
-          {testimonials.map((testimonial, index) => (
-            <div key={index}>
-              {renderCard(testimonial)}
+        {/* Desktop: 3 Cards at a Time */}
+        <div className="mt-12 hidden lg:block lg:mt-14">
+
+          <div className="grid grid-cols-3 gap-7">
+            {testimonials
+              .slice(desktopIndex, desktopIndex + 3)
+              .map((testimonial, index) => (
+                <div key={testimonial.name}>
+                  {renderCard(testimonial)}
+                </div>
+              ))}
+          </div>
+
+          {/* Desktop Navigation */}
+          <div className="mt-8 flex items-center justify-between">
+
+            <p className="text-sm text-slate-500">
+              Showing {desktopIndex + 1}–{desktopIndex + 3} of{" "}
+              {testimonials.length} testimonials
+            </p>
+
+            <div className="flex items-center gap-3">
+
+              <button
+                type="button"
+                onClick={previousDesktop}
+                aria-label="Previous testimonials"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 active:scale-90"
+              >
+                <ChevronLeft size={22} />
+              </button>
+
+              <button
+                type="button"
+                onClick={nextDesktop}
+                aria-label="Next testimonials"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 active:scale-90"
+              >
+                <ChevronRight size={23} />
+              </button>
+
             </div>
-          ))}
+          </div>
         </div>
 
-        {/* Mobile: One Testimonial at a Time */}
-        <div className="mt-10 md:hidden">
+        {/* Mobile & Tablet: One Card at a Time */}
+        <div className="mt-10 lg:hidden">
 
           {renderCard(testimonials[activeIndex])}
 
@@ -123,8 +205,12 @@ const Testimonials = () => {
               {testimonials.map((_, index) => (
                 <button
                   key={index}
+                  type="button"
                   onClick={() => setActiveIndex(index)}
                   aria-label={`Show testimonial ${index + 1}`}
+                  aria-current={
+                    activeIndex === index ? "true" : undefined
+                  }
                   className={`h-2 rounded-full transition-all duration-300 ${
                     activeIndex === index
                       ? "w-6 bg-blue-600"
@@ -134,20 +220,31 @@ const Testimonials = () => {
               ))}
             </div>
 
-            {/* Next Button */}
-            <button
-              onClick={nextTestimonial}
-              aria-label="Next testimonial"
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-white shadow-md shadow-blue-600/20 transition-all duration-300 hover:bg-blue-700 active:scale-90"
-            >
-              <ChevronRight size={23} />
-            </button>
+            {/* Previous & Next Buttons */}
+            <div className="flex items-center gap-3">
 
+              <button
+                type="button"
+                onClick={previousTestimonial}
+                aria-label="Previous testimonial"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 active:scale-90"
+              >
+                <ChevronLeft size={22} />
+              </button>
+
+              <button
+                type="button"
+                onClick={nextTestimonial}
+                aria-label="Next testimonial"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 active:scale-90"
+              >
+                <ChevronRight size={23} />
+              </button>
+
+            </div>
           </div>
-
         </div>
 
-        {/* Extra bottom spacing before Footer */}
       </div>
     </section>
   );

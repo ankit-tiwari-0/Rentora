@@ -242,28 +242,38 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Create a booking
-  const createBooking = async ({ car, pickupDate, returnDate }) => {
-    try {
-      const { data } = await axios.post("/api/booking/create", {
-        car,
-        pickupDate,
-        returnDate,
-      });
+  
+// Create a booking and get Stripe client secret
+// Create a booking and get Stripe client secret
+const createBooking = async ({ car, pickupDate, returnDate }) => {
+  try {
+    const { data } = await axios.post("/api/booking/create", {
+      car,
+      pickupDate,
+      returnDate,
+    });
 
-      if (data.success) {
-        toast.success(data.message || "Booking created successfully");
-        return data;
-      }
-
-      throw new Error(data.message || "Failed to create booking");
-    } catch (error) {
-      toast.error(
-        error.response?.data?.message || error.message || "Booking failed"
+    if (
+      !data.success ||
+      !data.clientSecret ||
+      !data.booking?._id
+    ) {
+      throw new Error(
+        data.message || "Booking or payment session is incomplete"
       );
-      throw error;
     }
-  };
+
+    return data;
+
+  } catch (error) {
+    console.error(
+      "Create booking error:",
+      error.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
 
   // Fetch bookings for the logged-in user
   const fetchUserBookings = async () => {

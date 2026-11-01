@@ -121,22 +121,28 @@ const Dashboard = () => {
     .slice(0, 5);
 
   // Provisional: completed booking value, not verified collected revenue.
-  const now = new Date();
-  const monthlyRevenue = bookings
-    .filter((booking) => {
-      const createdAt = new Date(booking.createdAt);
-      return (
-        String(booking.status || "").toLowerCase() === "completed" &&
-        !Number.isNaN(createdAt.getTime()) &&
-        createdAt.getMonth() === now.getMonth() &&
-        createdAt.getFullYear() === now.getFullYear()
-      );
-    })
-    .reduce(
-      (total, booking) =>
-        total + Number(booking.totalPrice ?? booking.price ?? 0),
-      0
+  
+// Calculate actual captured revenue for the current month
+const now = new Date();
+
+const monthlyRevenue = bookings
+  .filter((booking) => {
+    if (booking.paymentStatus !== "paid" || !booking.paidAt) {
+      return false;
+    }
+
+    const paidAt = new Date(booking.paidAt);
+
+    return (
+      !Number.isNaN(paidAt.getTime()) &&
+      paidAt.getMonth() === now.getMonth() &&
+      paidAt.getFullYear() === now.getFullYear()
     );
+  })
+  .reduce((total, booking) => {
+    return total + Number(booking.price ?? 0);
+  }, 0);
+
 
   const currentMonth = new Date().toLocaleDateString("en-IN", {
     month: "long",
@@ -430,13 +436,12 @@ const Dashboard = () => {
             </p>
           </div>
 
-          <div className="mt-6 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-3 text-xs text-amber-700">
-            <TrendingUp size={16} className="mt-0.5 shrink-0" />
-            <span>
-              Shows completed booking value for this month. This is not
-              confirmed payment revenue until payment records are integrated.
-            </span>
-          </div>
+          <div className="mt-6 flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-3 text-xs text-emerald-700">
+  <TrendingUp size={16} className="mt-0.5 shrink-0" />
+  <span>
+    Revenue includes successfully captured Stripe payments for this month.
+  </span>
+</div>
 
           <div className="mt-6 border-t border-slate-100 pt-5">
             <div className="flex items-center justify-between gap-3 text-sm">

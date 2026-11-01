@@ -82,7 +82,6 @@ const CarDetail = () => {
 
   const [pickupDate, setPickupDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
-
   const car = useMemo(() => {
     const foundCar = (Array.isArray(cars) ? cars : []).find(
       (item) => String(item._id || item.id) === String(id)
@@ -120,70 +119,99 @@ const CarDetail = () => {
   const rentalDays = getRentalDays(pickupDate, returnDate);
   const estimatedTotal = rentalDays * (car?.price || 0);
 
-  const handleBooking = async (event) => {
-    event.preventDefault();
+  
+const handleBooking = async (event) => {
+  event.preventDefault();
 
-    if (!car) return;
+  if (!car) return;
 
-    if (!user) {
-      toast.error("Please log in to book a car.");
-      navigate("/login");
+  if (!user) {
+    toast.error("Please log in to book a car.");
+    navigate("/login");
+    return;
+  }
+
+  if (!pickupDate || !returnDate) {
+    toast.error("Please select pickup and return dates.");
+    return;
+  }
+
+  if (pickupDate < today) {
+    toast.error("Pickup date cannot be in the past.");
+    return;
+  }
+
+  if (returnDate <= pickupDate) {
+    toast.error("Return date must be after the pickup date.");
+    return;
+  }
+
+  if (!car.isAvailable || !car.isListed) {
+    toast.error("This vehicle is currently unavailable.");
+    return;
+  }
+
+  if (bookingLoading) return;
+
+  setBookingLoading(true);
+
+  try {
+    // 1. Check car availability
+    const availability = await checkAvailability({
+      location: car.location,
+      pickupDate,
+      returnDate,
+    });
+
+    const isCarAvailable = availability?.availableCars?.some(
+      (availableCar) =>
+        String(availableCar._id || availableCar.id) === String(car.id)
+    );
+
+    if (!isCarAvailable) {
+      toast.error("This car is unavailable for your selected dates.");
       return;
     }
 
-    if (!pickupDate || !returnDate) {
-      toast.error("Please select pickup and return dates.");
-      return;
-    }
+    // 2. Create booking and Stripe PaymentIntent
+    const bookingData = await createBooking({
+      car: car.id,
+      pickupDate,
+      returnDate,
+    });
 
-    if (pickupDate < today) {
-      toast.error("Pickup date cannot be in the past.");
-      return;
-    }
-
-    if (returnDate <= pickupDate) {
-      toast.error("Return date must be after the pickup date.");
-      return;
-    }
-
-    if (!car.isAvailable || !car.isListed) {
-      toast.error("This vehicle is currently unavailable.");
-      return;
-    }
-
-    if (bookingLoading) return;
-
-    setBookingLoading(true);
-
-    try {
-      const availability = await checkAvailability({
-        location: car.location,
-        pickupDate,
-        returnDate,
-      });
-
-      const isCarAvailable = availability?.availableCars?.some(
-        (availableCar) => String(availableCar._id) === String(car.id)
+    // 3. Validate backend response
+    if (
+      !bookingData?.success ||
+      !bookingData?.clientSecret ||
+      !bookingData?.booking?._id
+    ) {
+      throw new Error(
+        bookingData?.message || "Unable to initialize payment."
       );
-
-      if (!isCarAvailable) {
-        toast.error("This car is unavailable for your selected dates.");
-        return;
-      }
-
-      await createBooking({
-        car: car.id,
-        pickupDate,
-        returnDate,
-      });
-
-      navigate("/my-bookings");
-    } catch (error) {
-      console.error("Booking failed:", error);
-    } finally {
-      setBookingLoading(false);
     }
-  };
+
+    // 4. Navigate to the separate payment page
+    navigate("/payment", {
+      state: {
+        clientSecret: bookingData.clientSecret,
+        bookingId: bookingData.booking._id,
+      },
+    });
+
+  } catch (error) {
+    console.error("Booking failed:", error);
+
+    toast.error(
+      error.response?.data?.message ||
+      error.message ||
+      "Unable to create booking."
+    );
+  } finally {
+    setBookingLoading(false);
+  }
+};
+
   // Loading state from Appcontext.jsx
   if (carsLoading) {
     return (

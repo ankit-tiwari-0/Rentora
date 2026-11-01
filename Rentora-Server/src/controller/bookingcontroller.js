@@ -1,4 +1,4 @@
-
+import stripe from "../config/stripe.js";
 import mongoose from "mongoose";
 import Booking from "../model/BookingModel.js";
 import Car from "../model/carmodel.js";
@@ -107,7 +107,11 @@ export const checkAvailabilityOfCar = async (req, res) => {
 };
 
 // 2. Create a booking
+
+// 2. Create a booking and authorize payment
 export const createBooking = async (req, res) => {
+    let booking;
+
     try {
         const userId = req.userId;
         const { car, pickupDate, returnDate } = req.body;
@@ -155,7 +159,6 @@ export const createBooking = async (req, res) => {
             });
         }
 
-        // An owner cannot book their own car
         if (carData.owner.toString() === userId.toString()) {
             return res.status(403).json({
                 success: false,
@@ -176,7 +179,7 @@ export const createBooking = async (req, res) => {
             });
         }
 
-        // Calculate price based on rental days
+        // Calculate rental price
         const millisecondsPerDay = 1000 * 60 * 60 * 24;
 
         const noOfDays = Math.ceil(
@@ -186,26 +189,60 @@ export const createBooking = async (req, res) => {
 
         const price = carData.pricePerDay * noOfDays;
 
-        const booking = await Booking.create({
+        if (!Number.isFinite(price) || price <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid rental price",
+            });
+        }
+
+        // Create booking with a 2-hour deadline
+        booking = await Booking.create({
             car: carData._id,
             owner: carData.owner,
             user: userId,
             pickupDate: dates.pickup,
             returnDate: dates.returned,
             price,
+            confirmationDeadline: new Date(
+                Date.now() + 2 * 60 * 60 * 1000
+            ),
         });
+
+        // Create Stripe PaymentIntent with manual capture
+        const paymentIntent = await stripe.paymentIntents.create({
+    amount: Math.round(price * 100),
+    currency: "inr",
+    capture_method: "manual",
+
+    metadata: {
+        bookingId: booking._id.toString(),
+        userId: userId.toString(),
+    },
+});
+
+        // Save Stripe PaymentIntent ID
+        booking.stripePaymentIntentId = paymentIntent.id;
+        await booking.save();
 
         return res.status(201).json({
             success: true,
-            message: "Booking created successfully",
+            message: "Booking created. Complete card authorization.",
             booking,
+            clientSecret: paymentIntent.client_secret,
         });
+
     } catch (error) {
         console.error("Create booking error:", error);
 
+        // Remove incomplete booking if Stripe setup failed
+        if (booking?._id) {
+            await Booking.findByIdAndDelete(booking._id);
+        }
+
         return res.status(500).json({
             success: false,
-            message: "Failed to create booking",
+            message: "Failed to create booking or authorize payment",
         });
     }
 };
@@ -282,6 +319,7 @@ export const changeBookingStatus = async (req, res) => {
         const userId = req.userId;
         const { bookingId, status } = req.body;
 
+        // Validate booking ID
         if (!bookingId || !mongoose.Types.ObjectId.isValid(bookingId)) {
             return res.status(400).json({
                 success: false,
@@ -289,6 +327,7 @@ export const changeBookingStatus = async (req, res) => {
             });
         }
 
+        // Validate status
         if (!["confirmed", "cancelled"].includes(status)) {
             return res.status(400).json({
                 success: false,
@@ -296,6 +335,7 @@ export const changeBookingStatus = async (req, res) => {
             });
         }
 
+        // Verify owner
         const owner = await User.findById(userId).select("role");
 
         if (!owner || owner.role !== "owner") {
@@ -314,7 +354,7 @@ export const changeBookingStatus = async (req, res) => {
             });
         }
 
-        // An owner can update only their own bookings
+        // Verify booking ownership
         if (booking.owner.toString() !== userId.toString()) {
             return res.status(403).json({
                 success: false,
@@ -322,6 +362,7 @@ export const changeBookingStatus = async (req, res) => {
             });
         }
 
+        // Only pending bookings can be updated
         if (booking.status !== "pending") {
             return res.status(400).json({
                 success: false,
@@ -329,8 +370,29 @@ export const changeBookingStatus = async (req, res) => {
             });
         }
 
-        // Recheck availability before confirming
+        // Check the two-hour confirmation deadline
+        if (
+            !booking.confirmationDeadline ||
+            new Date() > new Date(booking.confirmationDeadline)
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "The booking confirmation deadline has expired",
+            });
+        }
+
+        // CONFIRM BOOKING
         if (status === "confirmed") {
+
+            // Verify payment information
+           if (!booking.stripePaymentIntentId) {
+  return res.status(400).json({
+    success: false,
+    message: "Payment information not found",
+  });
+}
+
+            // Recheck vehicle availability
             const conflict = await findConflictingBooking(
                 booking.car,
                 booking.pickupDate,
@@ -344,16 +406,92 @@ export const changeBookingStatus = async (req, res) => {
                     message: "These dates conflict with another booking",
                 });
             }
+
+            // Verify actual Stripe authorization
+          const existingIntent = await stripe.paymentIntents.retrieve(
+  booking.stripePaymentIntentId
+);
+
+// Verify that this PaymentIntent belongs to this booking
+if (
+  existingIntent.metadata.bookingId !== booking._id.toString() ||
+  existingIntent.metadata.userId !== booking.user.toString()
+) {
+  return res.status(403).json({
+    success: false,
+    message: "Payment verification failed",
+  });
+}
+
+// Stripe must confirm that the card is authorized
+if (existingIntent.status !== "requires_capture") {
+  return res.status(400).json({
+    success: false,
+    message: `Card is not authorized. Payment status: ${existingIntent.status}`,
+  });
+}
+            // Capture authorized payment
+            const capturedIntent = await stripe.paymentIntents.capture(
+                booking.stripePaymentIntentId
+            );
+
+            if (capturedIntent.status !== "succeeded") {
+                return res.status(400).json({
+                    success: false,
+                    message: "Payment capture was unsuccessful",
+                });
+            }
+
+            // Update booking only after successful capture
+            booking.status = "confirmed";
+            booking.paymentStatus = "paid";
+            booking.paidAt = new Date();
+
+            await booking.save();
+
+            return res.status(200).json({
+                success: true,
+                message: "Booking confirmed and payment captured successfully",
+                booking,
+            });
         }
 
-        booking.status = status;
-        await booking.save();
+        // CANCEL BOOKING
+        if (status === "cancelled") {
 
-        return res.status(200).json({
-            success: true,
-            message: `Booking ${status} successfully`,
-            booking,
-        });
+            if (booking.stripePaymentIntentId) {
+                const paymentIntent = await stripe.paymentIntents.retrieve(
+                    booking.stripePaymentIntentId
+                );
+
+                // Release the authorized amount
+                if (paymentIntent.status === "requires_capture") {
+                    await stripe.paymentIntents.cancel(
+                        booking.stripePaymentIntentId
+                    );
+
+                    booking.paymentStatus = "released";
+                } else if (paymentIntent.status === "canceled") {
+                    booking.paymentStatus = "released";
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Cannot cancel booking because payment status is ${paymentIntent.status}`,
+                    });
+                }
+            }
+
+            booking.status = "cancelled";
+
+            await booking.save();
+
+            return res.status(200).json({
+                success: true,
+                message: "Booking cancelled successfully",
+                booking,
+            });
+        }
+
     } catch (error) {
         console.error("Change booking status error:", error);
 
