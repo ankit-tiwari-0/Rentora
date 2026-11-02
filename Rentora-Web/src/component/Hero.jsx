@@ -279,7 +279,7 @@ const Hero = () => {
               sm:col-span-2
               lg:col-span-1 lg:w-auto
 
-              max-sm:h-[50px] max-sm:mt-1
+              max-sm:h-/[50px] max-sm:mt-1
             "
           >
             <Search size={19} />
@@ -287,33 +287,54 @@ const Hero = () => {
           </motion.button>
         </motion.form>
 
-        {/* Sequential Animated Car Showcase */}
-        <div className="
-          mx-auto mt-10 w-full max-w-5xl
-          overflow-hidden sm:mt-12 lg:mt-14
-          max-sm:mt-7
-        ">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.img
-              key={activeCar}
-              src={cars[activeCar]}
-              alt={`Luxury car ${activeCar + 1} available for rent`}
-              fetchPriority={activeCar === 0 ? "high" : "auto"}
-              initial={{ x: "100%", opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "-100%", opacity: 0 }}
-              transition={{
-                duration: 1.3,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              className="
-                mx-auto block h-auto w-full
-                max-w-/[850px] object-contain
-                max-sm:w-[88%] max-sm:max-w-[340px]
-              "
-            />
-          </AnimatePresence>
-        </div>
+        {/* Premium Animated Car Showcase */}
+<div
+  className="
+    relative mx-auto mt-10
+    h-/[260px] w-full max-w-5xl
+    overflow-hidden
+    sm:mt-12 sm:h-/[340px]
+    lg:mt-14 lg:h-/[420px]
+    max-sm:mt-7 max-sm:h-/[190px]
+  "
+>
+  <AnimatePresence initial={false} mode="sync">
+    <motion.img
+      key={activeCar}
+      src={cars[activeCar]}
+      alt={`Luxury car ${activeCar + 1} available for rent`}
+      initial={{
+        x: "110%",
+        opacity: 0,
+      }}
+      animate={{
+        x: "0%",
+        opacity: 1,
+      }}
+      exit={{
+        x: "-110%",
+        opacity: 0,
+      }}
+      transition={{
+        x: {
+          duration: 1.5,
+          ease: [0.22, 1, 0.36, 1],
+        },
+        opacity: {
+          duration: 1.1,
+          ease: "easeInOut",
+        },
+      }}
+      className="
+        absolute inset-0
+        m-auto h-full w-full
+        object-contain
+        max-w-/[850px]
+        will-change-transform
+      "
+    />
+  </AnimatePresence>
+</div>
 
       </div>
     </section>
