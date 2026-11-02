@@ -121,15 +121,28 @@ const handleSubmit = async (event) => {
     }
 
     // Refresh the shared authentication state.
-    await fetchUser();
+    if (mode === "signup") {
+  toast.success("Account created successfully! Please login.");
 
-    toast.success(
-      mode === "login"
-        ? "Welcome back to Rentora!"
-        : "Your Rentora account has been created!"
-    );
+  setForm({
+    name: "",
+    email,
+    password: "",
+    confirmPassword: "",
+  });
 
-    navigate(redirectTo, { replace: true });
+  setMode("login");
+  setShowPassword(false);
+
+  return;
+}
+
+// Only login should refresh authentication state.
+await fetchUser();
+
+toast.success("Welcome back to Rentora!");
+
+navigate(redirectTo, { replace: true });
   } catch (error) {
     toast.error(
       error.response?.data?.message ||

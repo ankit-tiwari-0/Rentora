@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://rentora-server-rho.vercel.app/api/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }

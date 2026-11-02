@@ -10,10 +10,8 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 
-// Axios configuration
-axios.defaults.baseURL = import.meta.env.VITE_BASE_URL;
+axios.defaults.baseURL = "";
 axios.defaults.withCredentials = true;
-
 export const AppContext = createContext(null);
 
 export const AppProvider = ({ children }) => {
