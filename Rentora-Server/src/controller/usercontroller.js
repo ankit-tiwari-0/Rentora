@@ -3,27 +3,27 @@ import bcrypt from 'bcrypt'
 import generateToken from "../config/JWT.js";
 import Car from "../model/carmodel.js";
 
-export const registerUser = async (req, res)=>{
+export const registerUser = async (req, res) => {
     try {
-        const {name, email, password} = req.body;
-       
-         if (!name || !email || !password || password.length <8) {
-            return res.json({success: false, message: 'Fill all the fields'})
-         }
+        const { name, email, password } = req.body;
 
-         const userExists = await User.findOne({email})
-         if (userExists) {
-            return res.json({success: false, message: 'User already exists'})
-         }
+        if (!name || !email || !password || password.length < 8) {
+            return res.json({ success: false, message: 'Fill all the fields' })
+        }
 
-         const hashPassword = await bcrypt.hash(password, 10)
-         const user = await User.create({name, email, password:hashPassword})
-         const token = generateToken(user._id.toString())
+        const userExists = await User.findOne({ email })
+        if (userExists) {
+            return res.json({ success: false, message: 'User already exists' })
+        }
 
-         res.json({success: true , token})
+        const hashPassword = await bcrypt.hash(password, 10)
+        const user = await User.create({ name, email, password: hashPassword })
+        const token = generateToken(user._id.toString())
+
+        res.json({ success: true, token })
 
     } catch (error) {
-            res.status(500).json({message: error.message})
+        res.status(500).json({ message: error.message })
     }
 }
 
@@ -72,7 +72,7 @@ export const loginUser = async (req, res) => {
         // 5. Store JWT in an HTTP-only cookie
         res.cookie("token", token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
+            secure: true,
             sameSite: "none",
             maxAge: 7 * 24 * 60 * 60 * 1000,
             path: "/"
@@ -131,7 +131,7 @@ export const logoutUser = async (req, res) => {
     try {
         res.clearCookie("token", {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
+            secure: true,
             sameSite: "none",
             path: "/"
         });
