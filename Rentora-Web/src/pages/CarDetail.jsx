@@ -583,7 +583,7 @@ const handleBooking = async (event) => {
                 className="shrink-0 text-emerald-600"
               />
 
-              Booking confirmation will be available after API integration.
+              Once your payment is successful, your booking request will be submitted. We'll keep you updated and notify you as soon as your reservation is confirmed.
             </div>
           </motion.aside>
         </div>
